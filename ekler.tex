@@ -1,0 +1,2541 @@
+\vglue20pt
+\chapter{APPENDIX A}
+
+\section{Codes for suction-injection problem}
+
+\begin{lstlisting}
+% Written by Elgiz Baskaya
+% elgizbaskaya@gmail.com 13.01.2014
+
+% This code solves the one dimensional channel problem
+% in the presence of a constant magnetic field and under 
+% constant pressure gradient. The Nonlinear coupled 
+% differential equations are discretized using GDQM method.
+% Then the nonlinear algeabraic equation set is solved 
+% utilizing NewtonRaphson Method
+
+% SAMPLE INPUT THROUGH SIO 
+% Enter the grid numbers for each axis and time within brackets
+% [xGridNum yGridNum tGridNum]
+% If the corresponding axis does not exist write 0 
+
+% To have the same results in table and compare with the work 
+% of Makinde.
+% Input = [0 11 0]
+
+% Write down the limits of the axes and time 
+% [x0 xN y0 yN t0 tN] for the starting and ending points within 
+% brackets (define problem domain)
+% If the corresponding axis does not exist write 0 0  
+
+% To have the same results in table and compare with the work 
+% of Makinde.
+% Input = [0 0 0 1 0 0]
+
+%% PROBLEM DEFINITION
+clc;
+clear all;
+close all;
+format long;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Constants given in the problem
+
+% Pressure Gradient
+G = 1;
+
+epsil = 0;
+Bi0 = 0.1;
+Bi1 = 0.1;
+
+% to include Joule dissipation lambda = 1; to exclude 
+% Joule dissipation lambda = 0; 
+lamba = 1;
+
+Ha = 1;
+Ec = 0.1;
+Pr = 0.7;
+Br = Ec * Pr;
+Re = 1;
+% Br / Gama = 0.1
+Gama = 0.71;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% GRIDDING
+
+% Option 1. Equal Gridding
+
+% Call function equalGridding to calculate gridded axes 
+% values. This problem is one directional and the state 
+% variables only change in y direction. Thus a valid input 
+% to the function when called would be like [0 11 0] 
+% meaning that only y axis will be gridded to 5 elements 
+% and [0 0 -1 1 0 0] meaning the lower and upper values 
+% of y will be -1 and 1 respectively
+griddedAxes = equalGridding();
+yValues = griddedAxes.y';
+
+% Option 2. Gauss Lobato Gridding
+% Chyebisev Gauss Lobato gridding
+% 
+% N = 7;
+% yValues = CGS_grid(0,1,N);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% DIFFERENTIAL QUADRATURE METHOD
+% number of unknowns n
+% Number of  different functions sets 
+fn = 2; % Since we only try to find velocity and temperature
+m = length(yValues);
+n = fn * m;
+
+% Vector of unknown variables 
+% x_1 ... x_m representing U_21 ... U_2M
+% x_m+1 ... x_2m representing theta_21 ... theta_2M
+
+% Unknown variables to be calculated written symbolically 
+% here
+xSym = sym('x',[n 1]);
+
+% soyle yapilirsa class(x1) = sym oluyor; yukardaki gibi 
+% olmuyor.
+% syms U T;
+% U=sym(zeros(N,1));
+% Th=sym(zeros(N,1));
+% 
+% for n=1:1:N
+%     eval(strcat('syms',' u',num2str(n)));
+%     U(n)=eval(strcat('u',num2str(n)));
+%     eval(strcat('syms',' th',num2str(n)));
+%     Th(n)=eval(strcat('th',num2str(n)));
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Initialize
+
+% Weight coefficients for first and second order derivatives
+weightCoef2nd = zeros(m,m);
+weightCoef1st = zeros(m,m);
+F = sym(zeros(2 * m, 1));
+
+% Function in symbolic variables to take the Jacobian
+for j = 1 : m
+    for k = 1 : m
+       weightCoef2nd(j,k) = ...
+       calculateSecondOrderCoef(yValues,j,k);
+       weightCoef1st(j,k) = ...
+       calculateFirstOrderCoef(yValues,j,k);
+    end 
+    
+    % Momentum Equations in discreatized form
+    F(j) = weightCoef2nd(j, :) * xSym(1 : m) - ...
+    epsil * (weightCoef1st(j, :) * ... 
+    xSym(m + 1 : 2 * m)) * ...
+    (weightCoef1st(j, :) * xSym(1 : m)) - ...
+    exp(epsil * xSym(m + j)) * (Re * weightCoef1st(j, :) *...
+    xSym(1 : m) +  Ha * xSym(j) - G);
+    
+    % Boundary Conditions for temperature
+    if j == 1
+        F(m + j) = weightCoef1st(1, :) * ...
+        xSym(m + 1 : 2 * m) - Bi0 * (xSym(m + j) - 1); 
+    elseif j == m
+        F(m + j) = weightCoef1st(m, :) * ...
+        xSym(m + 1 : 2 * m) + Bi1 * xSym(m + j);       
+    else 
+   % Energy Equations in discretized form
+    F(m + j) = weightCoef2nd(j, :) * xSym(m + 1 : 2 * m) - ...
+    Re * Pr * weightCoef1st(j, :) * xSym(m + 1 : 2 * m) + ...
+    Br * exp(- epsil * xSym(m + j)) * ...
+    (weightCoef1st(j, :) * xSym(1 : m))^2 + ...
+    Br * Ha * (xSym(j))^2;
+    end
+end
+
+% Boundary conditions for velocity u(0) = u(L) = 0
+F = subs(F, [xSym(1) xSym(m)], [0 0]);
+
+% Functions corresponding to boundary conditions
+F(1,:) = [];
+F(m - 1 ,:) = [];
+
+xSym(1) = [];
+xSym(m - 1) = [];
+
+% Take the Jacobian of the function
+jacob = jacobian(F, xSym(:));
+
+%% NEWTON RAPHSON METHOD
+% NEwton Raphson method is utilized in this section to 
+% solve the nonlinear algeabraic equation set 
+% developed above
+
+tol = 1e-3;
+
+% Initial guess for the state vector
+%Guess = [ 0.9 1.2 1.3 1.1 1.1 1.3 1.2 0.9 0.9 ...
+% 0.8 0.7 0.6 0.5 0.4 0.3 0.2]';
+%x = Guess;
+%Guess = sin(pi * yValues(2:m-1)/2 +pi/2)';
+x = [ones(m - 2,1); ones(m,1);];
+
+%set the error 2*tol to make sure the loop runs at least once 
+error = 2*tol;
+
+% preallocating
+velocityCalc = zeros(m - 2, 1);
+temperatureCalc = zeros(m, 1);
+velocity = zeros(m - 2 , 1);
+temperature = zeros(m, 1);
+
+while error > tol
+% %calculate the function values at the current iteration
+% F = feval(MyFunc,x);
+% %calculate the jacobian matrix
+% J = feval(Jacobian,x);
+
+F_eval = double(subs(F,xSym,x));
+J_eval = double(subs(jacob, xSym,x));
+
+%calculate the update (solve the linear system)
+dx = - J_eval \ F_eval;
+
+%update the x value
+x = x + dx;
+
+% divide the unknown vector to unknown states
+velocityCalc = x(1 : m - 2);
+temperatureCalc = x(m - 1 : 2 * m - 2);
+% include boundaries conditions
+velocity = [0; velocityCalc ;0];
+temperature = temperatureCalc;
+
+%calculate the error
+F_eval = double(subs(F,xSym,x));
+error = max(abs(F_eval));
+end %while loop 
+
+display(velocity)
+display(temperature)
+
+%% ANALYTICAL SOLUTION 
+% Ref: 
+alfa = (Re + sqrt(Re^2 + 4* Ha)) / 2;
+beta = (Re - sqrt(Re^2 + 4 * Ha)) / 2;
+velocityAnal = G / Ha * (((exp(alfa * yValues) * ...
+(exp(beta) - 1) - exp(beta * yValues) * ...
+(exp(alfa) - 1)) / (exp(alfa) - exp(beta))) + 1);
+
+display(velocityAnal)
+
+%% Error calculation
+% http://netlib.org/scalapack/slug/node135.html
+% http://www.netlib.org/lapack/lug/node75.html
+
+% Relative ERROR :
+% Two Norm : 
+errorTwoNorm = norm(velocity - velocityAnal, 2) / ...
+norm(velocityAnal,2)
+
+% Infinity Norm : 
+errorInfNorm = norm(velocity - velocityAnal, Inf) / ...
+norm(velocityAnal,Inf)
+% Absolute ERROR : 
+% Two Norm :
+
+% Infinity Norm: 
+
+
+% Entropy Generation
+S = (weightCoef1st * temperature).^2 + ...
+Br / Gama * ((exp(-epsil * temperature) .* ...
+(weightCoef1st * velocity).^2) + Ha * velocity.^2);
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function [coef_ii_firstOrder] = coeFirstOrder_ii(griddedAxis,i)
+ % case i == j  or coef_ii 
+   
+ coef_ii_firstOrder = 0;
+    for j = 1: 1: length(griddedAxis)
+        if i ~= j
+            coef_ii_firstOrder = coef_ii_firstOrder - ...
+            coeFirstOrder_ij(griddedAxis,i,j);
+        end
+    end
+    
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function [coef_ij_firstOrder]=coeFirstOrder_ij(griddedAxis,i,j)
+
+% M1 first order derivative 
+% M2 second order derivative
+
+% M1_atAPoint = MfirstOrder(griddedAxis.x,gridIndex);
+
+    coef_ij_firstOrder = MfirstOrder(griddedAxis, i) / ...
+    (griddedAxis(i) - griddedAxis(j)) / ...
+    MfirstOrder(griddedAxis,j );
+
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function [coef_ii_secondOrder]=coefSecondOrder_ii(griddedAxis,i)
+ % case i == j  or coef_ii 
+   
+ coef_ii_secondOrder = 0;
+    for j = 1: 1: length(griddedAxis)
+        if i ~= j
+            coef_ii_secondOrder = coef_ii_secondOrder - ...
+            coefSecondOrder_ij(griddedAxis,i,j);
+        end
+    end
+    
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function[coef_ij_secondOrder]=coefSecondOrder_ij(griddedAxis,i,j)
+
+    coef_ij_secondOrder = 2 * ...
+    coeFirstOrder_ij(griddedAxis, i , j) * ...
+    (coeFirstOrder_ii(griddedAxis,i) - ...
+    (1 / (griddedAxis(i) - griddedAxis(j))));
+
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function [griddedAxis] = equalGridding()
+
+%% Info
+ 
+% OUTPUT of the function
+% griddedAxis  : a struct where
+% griddedAxis.x : gridded x-axis values
+% griddedAxis.y : gridded y-axis values
+% griddedAxis.t : gridded time values
+
+%% Gridding 
+    gridNumber = input('Enter the grid numbers for each ...
+    axis and time within brackets ... 
+    [xGridNum yGridNum tGridNum]\n ...
+    If the corresponding axis does not exist write 0 \n');
+    boundaries = input('Write down the limits of the axes... 
+    and time [x0 xN y0 yN t0 tN] for the starting and ...
+    ending points within brackets (define problem ...
+    domain)\nIf the corresponding axis does not exist ...
+    write 0 0 \n');
+    griddedAxis.x = zeros(1,gridNumber(1));
+    griddedAxis.y = zeros(1,gridNumber(2));
+    griddedAxis.t = zeros(1,gridNumber(3));
+
+    for i = 1 : 1 : gridNumber(1)
+        griddedAxis.x(i) = boundaries(1) + ...
+        (boundaries(2) - boundaries(1)) / ...
+        (gridNumber(1) - 1 ) * (i - 1);
+    end
+   
+    for j = 1 : 1 :  gridNumber(2)
+        griddedAxis.y(j) = boundaries(3) + ...
+        (boundaries(4) - boundaries(3)) / ...
+        (gridNumber(2) - 1 ) * (j - 1);
+    end
+    
+    for k = 1 : 1 : gridNumber(3)
+        griddedAxis.t(k) = boundaries(5) + ...
+        (boundaries(6) - boundaries(5)) / ...
+        (gridNumber(3) - 1 ) * (k - 1);
+    end
+
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function [ x ] = CGS_grid( x1, xn, N )
+%CGS_GR?D Chebyshev-Gauss-Lobatto Grid
+% x1: Start point of grid at x direction
+% xn: End point of grid at x direction
+% y1: Start point of grid at y direction
+% ym: End point of grid at y direction
+% N: number of grids at x direction
+% M: number of grids at y direction
+
+x=zeros(N,1);
+for k=1:1:N
+    x(k)=0.5*(1-cos((k-1)/(N-1)*pi))*(xn-x1)+x1;
+end
+
+
+end
+
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function[coeFirstOrder]=calculateFirstOrderCoef(griddedAxis...
+, i, j)
+
+    if i == j
+        coeFirstOrder = coeFirstOrder_ii(griddedAxis, i);
+    else
+        coeFirstOrder = coeFirstOrder_ij(griddedAxis, i,j);
+    end
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+function[coefSecondOrder]=...
+calculateSecondOrderCoef(griddedAxis, i, j)
+
+    if i == j
+        coefSecondOrder = coefSecondOrder_ii(griddedAxis, i);
+    else
+        coefSecondOrder = coefSecondOrder_ij(griddedAxis, i,j);
+    end
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+
+function [M1_atApoint] = MfirstOrder(griddedAxis,k)
+M1_atApoint = 1;
+    for m = 1: 1: length(griddedAxis) 
+        if k ~= m
+        M1_atApoint = ( griddedAxis(k) - griddedAxis(m) ) *...
+        M1_atApoint;
+        end
+    end
+end
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+% Investigation of  the problem on dimensionless parameters
+% (Gr/Re, Ha, Br) for the given number of grids (N)
+
+N = 20;
+yValues = CGS_grid(0,1,N);
+
+% griddedAxes = equalGridding();
+% yValues = griddedAxes.y';
+
+% Dependence on Hartmann Number
+
+% Pressure Gradient
+G = 1;
+
+epsil = 0.1;
+Bi0 = 0.1;
+Bi1 = 0.1;
+
+% Ha = 1;
+Ec = 0.1;
+Pr = 0.71;
+Br = Ec * Pr;
+Re = 0.1;
+% Br / Gama = 0.1
+Gama = 0.71;
+
+velocityAnal = zeros(length(yValues),4);
+% vel(:,k) = velocity;
+% temp(:,k) = temperature;
+
+k = 1;
+
+for Ha = 1: 1 : 4
+    
+    [velocity,temperature,S] = ...
+    oneDimPorousChannelwithMagFPartialBound(G, ...
+    epsil, Bi0, Bi1, Ha, Pr, Re, Br, Gama);
+    
+    % Analytical Solution
+    alfa = (Re + sqrt(Re^2 + 4* Ha)) / 2;
+    beta = (Re - sqrt(Re^2 + 4 * Ha)) / 2;
+    velocityAnal.data(:,k) = G / Ha * ...
+    (((exp(alfa * yValues) * (exp(beta) - 1) - ...
+    exp(beta * yValues) * (exp(alfa) - 1)) / ...
+    (exp(alfa) - exp(beta))) + 1);
+    
+    vel.data(:,k) = velocity;
+    temp.data(:,k) = temperature;
+    
+    k = k + 1;
+
+end
+
+
+figVel = figure;
+hold on;
+
+vel1 = plot(yValues,vel.data(:,1));
+set(vel1                            , ...
+  'Marker'          , 's'         , ...
+  'Color'           , [0 0 .5]    ,...
+  'LineWidth'       , 1.         );
+vel2 = plot(yValues,vel.data(:,2));
+set(vel2                            , ...
+  'Marker'          , '+'         , ...
+  'Color'           , [0 0 .5]  ,...
+  'LineWidth'       , 1.         );
+vel3 = plot(yValues,vel.data(:,3));
+set(vel3                            , ...
+  'Marker'          , '^'         , ...
+  'Color'           , [0 0 .5]  ,...
+  'LineWidth'       , 1.         );
+
+vel4 = plot(yValues,vel.data(:,4));
+set(vel4                            , ...
+  'Marker'          , '*'         , ...
+  'Color'           , [0 0 .5]  ,...
+  'LineWidth'       , 1.         );
+
+
+hTitle  = title ('Velocity Profile for different ...
+values of Ha ');
+hYLabel = ylabel('Velocity'                     );
+hXLabel = xlabel('Length - Y'                      );
+
+hLegend = legend( ...
+  [vel1, vel2, vel3, vel4], ...
+  'Ha = 1' , ...
+  'Ha = 2'      , ...
+  'Ha = 3'       , ...
+  'Ha = 4' , 2);
+
+set( gca                       , ...
+    'FontName'   , 'Helvetica' );
+set([hTitle, hXLabel, hYLabel], ...
+    'FontName'   , 'AvantGarde');
+set([hLegend, gca]             , ...
+    'FontSize'   , 12           );
+set([hXLabel, hYLabel]  , ...
+    'FontSize'   , 12          );
+set( hTitle                    , ...
+    'FontSize'   , 12          , ...
+    'FontWeight' , 'bold'      );
+
+set(gca, ...
+  'Box'         , 'off'     , ...
+  'TickDir'     , 'out'     , ...
+  'TickLength'  , [.02 .02] , ...
+  'XMinorTick'  , 'on'      , ...
+  'YMinorTick'  , 'on'      , ...
+  'YGrid'       , 'on'      , ...
+  'XColor'      , [.3 .3 .3], ...
+  'YColor'      , [.3 .3 .3], ...
+  'LineWidth'   , 1         );
+
+% hText   = text(10, 800, ...
+%   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+%   c, cint(2)-c));
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 velDist.eps
+
+fixPSlinestyle('velDist.eps');
+
+
+% Graphes for temperature change
+
+figTemp = figure;
+hold on;
+
+temp1 = plot(yValues,temp.data(:,1));
+set(temp1                            , ...
+  'Marker'          , 's'         , ...
+  'Color'           , [0 .5 0]    ,...
+  'LineWidth'       , 1.         );
+temp2 = plot(yValues,temp.data(:,2));
+set(temp2                            , ...
+  'Marker'          , '+'         , ...
+  'Color'           , [0 .5 0]  ,...
+  'LineWidth'       , 1.         );
+temp3 = plot(yValues,temp.data(:,3));
+set(temp3                            , ...
+  'Marker'          , '^'         , ...
+  'Color'           , [0 .5 0]  ,...
+  'LineWidth'       , 1.         );
+
+temp4 = plot(yValues,temp.data(:,4));
+set(temp4                            , ...
+  'Marker'          , '*'         , ...
+  'Color'           , [0 .5 0]   ,...
+  'LineWidth'       , 1.         );
+
+
+hTitle  = title ('Temperature distribution for different ...
+values of Ha ');
+hYLabel = ylabel('Temperature'                     );
+hXLabel = xlabel('Length - Y'                      );
+
+hLegend = legend( ...
+  [temp1, temp2, temp3, temp4], ...
+  'Ha = 1' , ...
+  'Ha = 2'      , ...
+  'Ha = 3'       , ...
+  'Ha = 4' , 1);
+
+set( gca                       , ...
+    'FontName'   , 'Helvetica' );
+set([hTitle, hXLabel, hYLabel], ...
+    'FontName'   , 'AvantGarde');
+set([hLegend, gca]             , ...
+    'FontSize'   , 12           );
+set([hXLabel, hYLabel]  , ...
+    'FontSize'   , 12          );
+set( hTitle                    , ...
+    'FontSize'   , 12          , ...
+    'FontWeight' , 'bold'      );
+
+set(gca, ...
+  'Box'         , 'off'     , ...
+  'TickDir'     , 'out'     , ...
+  'TickLength'  , [.02 .02] , ...
+  'XMinorTick'  , 'on'      , ...
+  'YMinorTick'  , 'on'      , ...
+  'YGrid'       , 'on'      , ...
+  'XColor'      , [.3 .3 .3], ...
+  'YColor'      , [.3 .3 .3], ...
+  'LineWidth'   , 1         );
+
+% hText   = text(10, 800, ...
+%   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+%   c, cint(2)-c));
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 temp.eps
+
+fixPSlinestyle('temp.eps');
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+%%%%%%%%%% This code is written by Elgiz Baskaya %%%%%%%%%%%%%%
+%%%% 21.11.2014 for questions mail to elgizbaskaya@gmail.com %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Investigation of  the problem on dimensionless parameters 
+% (Gr/Re, Ha, Br) for the given number of grids (N)
+tic;
+% close all;
+clear all;
+clc;
+close all;
+
+
+N = 20;
+yValues = CGS_grid(0,1,N);    
+
+% griddedAxes = equalGridding();
+% yValues = griddedAxes.y';
+
+% Dependence on Hartmann Number
+
+% Pressure Gradient
+G = 1;
+
+% epsil = 0.1;
+Bi0 = 0.1;
+Bi1 = 0.1;
+
+% Ha = 1;
+Ec = 0.1;
+Pr = 0.71;
+Br = Ec * Pr;
+Re = 100;
+% Br / Gama = 0.1
+Gama = 0.71;
+epsil = 0.1;
+
+velocityAnal = zeros(length(yValues),4);
+NG = zeros(length(yValues), 11, 11); 
+Nh = zeros(length(yValues), 11, 11); 
+Nf = zeros(length(yValues), 11, 11); 
+Nm = zeros(length(yValues), 11, 11); 
+NGav = zeros(11,11);
+Nhav = zeros(11,11);
+Nfav = zeros(11,11);
+Nmav = zeros(11,11);
+
+% vel(:,k) = velocity;
+% temp(:,k) = temperature;
+
+i = 1;
+k = 1;
+for  nonDimV = 0 : 0.1 : 1
+
+    for Ha = 0 : 1 : 10
+
+        [velocity,temperature,S,NheatTrans,NfluidFric,...
+        NmagField] = oneDimPorousChannelwithMagFPartialBound...
+        (G, epsil, Bi0, Bi1, Ha, Pr, Re, Br, Gama, nonDimV);
+
+        % Analytical Solution valid only for epsil = 0 which 
+        % means constant fluid viscosity
+        
+        alfa = (Re + sqrt(Re^2 + 4* Ha)) / 2;
+        beta = (Re - sqrt(Re^2 + 4 * Ha)) / 2;
+        velocityAnal.data(:,i,k) = G / Ha * ...
+        (((exp(alfa * yValues) * (exp(beta) - 1) - ...
+        exp(beta * yValues) * (exp(alfa) - 1)) / ...
+        (exp(alfa) - exp(beta))) + 1);
+
+        vel.data(:,i,k) = velocity;
+        temp.data(:,i,k) = temperature;
+        
+        NG(:,i,k) = S;         % Local entropy generation rate 
+                               % NG = Nh + Nf + Nm
+        Nh(:,i,k) = NheatTrans; % Irreversibility due to heat 
+                                              % transfer
+        Nf(:,i,k) = NfluidFric; % Entropy genereation due to 
+        					           % viscous dissipation
+        Nm(:,i,k) = NmagField;  % Entropy generation due to the 
+        						        % effect of magnetic field 
+						              % (Joule heating or Ohmic heating)
+        
+        
+        NGav(i,k) = S' * yValues;   % Dimensionless total entropy
+                                   % generation rate
+        Nhav(i,k) = NheatTrans' * yValues; % Dimensionless total 
+        						               % entropy generation  
+						                     % rate due to 
+						                     % heat transfer
+        Nfav(i,k) = NfluidFric' * yValues; % Dimensionless total  
+        								     % entropy generation 
+								               % rate due to 
+								               % heat transfer
+        Nmav(i,k) = NmagField' * yValues; % Dimensionless total  
+        						             % entropy generation 
+								              % rate due 
+								              % to heat transfer
+
+
+        k = k + 1;
+
+    end
+    k = 1;
+    i = i + 1;
+end
+
+ Be = Nh ./ NG; % Bejan number
+ 
+
+
+% % FIGURES
+% 
+% % This part of code should be modified for changing 
+% % numbers of velocity and temperature profiles. 
+% % Now it simulates for 3 different Ha and 3 different
+% % Re configurations resulting 9 different conditions. 
+% % ( Examp : Re 0, Ha 1; Re 0 , Ha 2; ...)
+% 
+% figVel = figure;
+% hold on;
+% 
+% vel1 = plot(yValues, vel.data(:,1,1));
+% set(vel1                            , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0 .5]    ,...
+%   'LineWidth'       , 1.2         );
+% vel2 = plot(yValues, vel.data(:,1,6));
+% set(vel2                            , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1.2         );
+% vel3 = plot(yValues, vel.data(:,1,11));
+% set(vel3                            , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1.2         );
+% vel4 = plot(yValues, vel.data(:,6,1));
+% set(vel4                            , ...
+%   'LineStyle'       ,':'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1.2         );
+% vel5 = plot(yValues, vel.data(:,6,6));
+% set(vel5                            , ...
+%   'LineStyle'       ,':'         , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1.1         );
+% vel6 = plot(yValues, vel.data(:,6,11));
+% set(vel6                            , ...
+%   'LineStyle'       ,':'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [1 0 0]  ,...
+%   'LineWidth'       , 1.2         );
+% vel7 = plot(yValues,vel.data(:,11,1));
+% set(vel7                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0.5 0]   ,...
+%   'LineWidth'       , 1.2         );
+% vel8 = plot(yValues, vel.data(:,11,6));
+% set(vel8                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1.2         );
+% vel9 = plot(yValues, vel.data(:,11,11));
+% set(vel9                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0.5 0]  ,...
+%   'LineWidth'       , 1.2         );
+% 
+% %hTitle  = title ('Velocity Profile for different ...
+% values of Ha and Re numbers');
+% hXLabel = xlabel('Y'                     );
+% hYLabel = ylabel('w(Y)'                      );
+% 
+% hLegend = legend( ...
+%   [vel1, vel2, vel3, vel4, vel5, vel6, vel7, vel8, vel9], ...
+%   '\epsilon = 0, Ha  = 0 ' , ...
+%   '\epsilon = 0, Ha  = 5'       , ...
+%   '\epsilon = 0, Ha  = 10'    , ...
+%   '\epsilon = 0.05, Ha  = 0' , ...
+%   '\epsilon = 0.05, Ha  = 5'      , ...
+%   '\epsilon = 0.05, Ha  = 10'                , ...
+%   '\epsilon = 0.1, Ha  = 0'                , ...
+%   '\epsilon = 0.1, Ha  = 5'    , ...
+%   '\epsilon = 0.1, Ha  = 10', 2);
+% 
+% set( gca                       , ...
+%     'FontName'   , 'Helvetica' );
+% % set([hTitle, hXLabel, hYLabel], ...
+% %     'FontName'   , 'AvantGarde');
+% set([hLegend, gca]             , ...
+%     'FontSize'   , 11           );
+% set([hXLabel, hYLabel]  , ...
+%     'FontSize'   , 12          );
+% % set( hTitle                    , ...
+% %     'FontSize'   , 12          , ...
+% %     'FontWeight' , 'bold'      );
+% 
+% set(gca, ...
+%   'Box'         , 'off'     , ...
+%   'TickDir'     , 'out'     , ...
+%   'TickLength'  , [.02 .02] , ...
+%   'XMinorTick'  , 'on'      , ...
+%   'YMinorTick'  , 'on'      , ...
+%   'YGrid'       , 'on'      , ...
+%   'XColor'      , [.3 .3 .3], ...
+%   'YColor'      , [.3 .3 .3], ...
+%   'LineWidth'   , 1         );
+% 
+% % hText   = text(10, 800, ...
+% %   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+% %   c, cint(2)-c));
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 '-r300' velDistEpsilonSmallerRange.eps
+% 
+% fixPSlinestyle('velDistEpsilonSmallerRange.eps', ...
+% 'velDistEpsilonSmallerRange2.eps');
+% 
+% 
+% % Graphes for temperature change
+% 
+% figTemp = figure;
+% hold on;
+% 
+% temp1 = plot(yValues, temp.data(:,1,1));
+% set(temp1                            , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0 .5]    ,...
+%   'LineWidth'       , 1         );
+% temp2 = plot(yValues, temp.data(:,1,6));
+% set(temp2                            , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1         );
+% temp3 = plot(yValues, temp.data(:,1,11));
+% set(temp3                            , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1         );
+% temp4 = plot(yValues, temp.data(:,6,1));
+% set(temp4                            , ...
+%   'LineStyle'       ,':'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1.1        );
+% temp5 = plot(yValues, temp.data(:,6,6));
+% set(temp5                            , ...
+%   'LineStyle'       ,':'         , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1         );
+% temp6 = plot(yValues, temp.data(:,6,11));
+% set(temp6                            , ...
+%   'LineStyle'       ,':'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [1 0 0]  ,...
+%   'LineWidth'       , 1.1         );
+% 
+% temp7 = plot(yValues, temp.data(:,11,1));
+% set(temp7                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0.5 0]   ,...
+%   'LineWidth'       , 1        );
+% temp8 = plot(yValues, temp.data(:,11,6));
+% set(temp8                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1         );
+% temp9 = plot(yValues, temp.data(:,11,11));
+% set(temp9                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0.5 0]  ,...
+%   'LineWidth'       , 1         );
+% 
+% hLegend = legend( ...
+%   [temp1, temp2, temp3, temp4, temp5, temp6, temp7, ...
+%    temp8, temp9], ...
+%   '\epsilon = 0, Ha  = 0 ' , ...
+%   '\epsilon = 0, Ha  = 5'       , ...
+%   '\epsilon = 0, Ha  = 10'    , ...
+%   '\epsilon = 0.05, Ha  = 0' , ...
+%   '\epsilon = 0.05, Ha  = 5'      , ...
+%   '\epsilon = 0.05, Ha  = 10'                , ...
+%   '\epsilon = 0.1, Ha  = 0'                , ...
+%   '\epsilon = 0.1, Ha  = 5'    , ...
+%   '\epsilon = 0.1, Ha  = 10', 1);
+% 
+% 
+% 
+% 
+% %hTitle  = title ('Temperature Distribution for ...
+% % different values of Ha and Re numbers');
+% hXLabel = xlabel('Y'                     );
+% hYLabel = ylabel('T(Y)'                      );
+% 
+% % set(hLegend, 'Position', [0.65, 0.3, 0.25, 0.25]);
+% set( gca                       , ...
+%     'FontName'   , 'Helvetica' );
+% % set([hTitle, hXLabel, hYLabel], ...
+% %     'FontName'   , 'AvantGarde');
+% set([hLegend, gca]             , ...
+%     'FontSize'   , 11           );
+% set([hXLabel, hYLabel]  , ...
+%     'FontSize'   , 12          );
+% % set( hTitle                    , ...
+% %     'FontSize'   , 12          , ...
+% %     'FontWeight' , 'bold'      );
+% 
+% set(gca, ...
+%   'Box'         , 'off'     , ...
+%   'TickDir'     , 'out'     , ...
+%   'TickLength'  , [.02 .02] , ...
+%   'XMinorTick'  , 'on'      , ...
+%   'YMinorTick'  , 'on'      , ...
+%   'YGrid'       , 'on'      , ...
+%   'XColor'      , [.3 .3 .3], ...
+%   'YColor'      , [.3 .3 .3], ...
+%   'LineWidth'   , 1         );
+% 
+% magnifyOnFigure(...
+%         figTemp,...
+%         'units', 'pixels',...
+%         'magnifierShape', 'ellipse',...
+%         'initialPositionSecondaryAxes', ...
+%          [210 300 140 80],...
+%         'initialPositionMagnifier', ...
+%          [290 230 40 40],...    
+%         'mode', 'interactive',...    
+%         'displayLinkStyle', 'straight',...        
+%         'edgeWidth', 1,...
+%         'edgeColor', [0 0 0.5],...
+%         'secondaryAxesFaceColor', ...
+%          [0.91 0.91 0.91]... 
+%             ); 
+%         
+% magnifyOnFigure(...
+%         figTemp,...
+%         'units', 'pixels',...
+%         'magnifierShape', 'ellipse',...
+%         'initialPositionSecondaryAxes', ...
+%          [115 100 140 80],...
+%         'initialPositionMagnifier',...
+%          [290 160 40 40],...    
+%         'mode', 'interactive',...    
+%         'displayLinkStyle', 'straight',...        
+%         'edgeWidth', 1,...
+%         'edgeColor', [0 0 0.5],...
+%         'secondaryAxesFaceColor', ...
+%          [0.91 0.91 0.91]... 
+%             ); 
+%         
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 tempDistEpsilonSmallerRange.eps
+% 
+% fixPSlinestyle('tempDistEpsilonSmallerRange.eps', ...
+% 'tempDistEpsilonSmallerRange2.eps');
+ 
+% % hText   = text(10, 800, ...
+% %   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+% %   c, cint(2)-c));
+% 
+% 
+% %'LineStyle'       ,'-.'         , ...
+% 
+% %    figure(1);
+% %    plot(velocity,yValues)
+% %    legend(cellstr(num2str((0:0.5:1)')))
+% %    legend(cellstr(strcat('\psi  =...
+% %     ',num2str((0:0.01:0.06)'))))
+% %    legend('ha=%d',Ha)
+% %    Ha = % d \n',Ha
+% %    xlabel('Velocity')
+% %    ylabel('Y')
+% %    hold all
+% %    figure(2);
+% %    plot(temperature,yValues)
+% %    legend(cellstr(strcat('\psi  =...
+% %     ',num2str((0:0.01:0.06)'))))
+% %    xlabel('Temperature')
+% %    ylabel('Y')
+% %    hold all
+% 
+% % % Entropy Generation
+% % 
+% % plot(yValues, S(:,3,1))
+% % 
+% % 
+% % figEntroGen = figure;
+% % hold on;
+% % 
+% % entroGen = plot(yValues, S);
+% % set(entroGen                            , ...
+% %   'Marker'          , 's'         , ...
+% %   'Color'           , [0 0 .5]    ,...
+% %   'LineWidth'       , 1.2         );
+
+save channelWorkspace_35;
+
+toc;
+
+\end{lstlisting}
+
+\begin{lstlisting}
+
+% Written by Elgiz Baskaya
+% elgizbaskaya@gmail.com 13.01.2014
+
+% This code solves the one dimensional channel problem
+% in the presence of a constant magnetic field and under 
+% constant pressure gadient. The Nonlinear coupled 
+% differential equations are discretized using GDQM method. 
+% Then the nonlinear algeabraic equation set is solved 
+%utilizing NewtonRaphson Method
+
+function [velocity,temperature,S,NheatTrans,NfluidFric,...
+NmagField]=oneDimPorousChannelwithMagFPartialBound(G, ...
+epsil, Bi0, Bi1, Ha, Pr, Re, Br, Gama, nonDimV)
+
+% Problem Definition
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Gridding 
+
+% Option 1. Equal Gridding
+
+% Call function equalGridding to calculate gridded axes values.
+% This problem is one directional and the state variables only 
+% change in y direction. Thus a valid input to the function 
+% when called would be like [0 10 0] meaning that only y 
+% axis will be gridded to 5 elements and [0 0 -1 1 0 0] 
+% meaning the lower and upper values of y will be -1 and 1 
+% respectively
+% griddedAxes = equalGridding();
+% yValues = griddedAxes.y';
+
+% Option 2. Gauss Lobato Gridding
+% Chyebisev Gauss Lobato gridding
+% 
+N = 20;
+yValues = CGS_grid(0,1,N);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% number of unknowns n
+% Number of  different functions sets 
+fn = 2; % Since we only try to find velocity and temperature
+m = length(yValues);
+n = fn * m;
+
+% Vector of unknown variables 
+% x_1 ... x_m representing U_21 ... U_2M
+% x_m+1 ... x_2m representing theta_21 ... theta_2M
+
+% Unknown variables to be calculated written symbolically
+% here
+xSym = sym('x',[n 1]);
+
+% soyle yapilirsa class(x1) = sym oluyor; yukardaki gibi 
+% olmuyor.
+% syms U T;
+% U=sym(zeros(N,1));
+% Th=sym(zeros(N,1));
+% 
+% for n=1:1:N
+%     eval(strcat('syms',' u',num2str(n)));
+%     U(n)=eval(strcat('u',num2str(n)));
+%     eval(strcat('syms',' th',num2str(n)));
+%     Th(n)=eval(strcat('th',num2str(n)));
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Initialize
+
+% Weight coefficients for first and second order derivatives
+weightCoef2nd = zeros(m,m);
+weightCoef1st = zeros(m,m);
+F = sym(zeros(2 * m, 1));
+
+% Function in symbolic variables to take the Jacobian
+for j = 1 : m
+    for k = 1 : m
+       weightCoef2nd(j,k) = ...
+       calculateSecondOrderCoef(yValues,j,k);
+       weightCoef1st(j,k) = ...
+       calculateFirstOrderCoef(yValues,j,k);
+    end 
+    
+    % Momentum Equations in discreatized form
+    F(j) = weightCoef2nd(j, :) * xSym(1 : m) - ...
+    epsil * (weightCoef1st(j, :) * ...
+    xSym(m + 1 : 2 * m)) * (weightCoef1st(j, :) * ...
+    xSym(1 : m)) - exp(epsil * xSym(m + j)) * ...
+    (nonDimV * Re * weightCoef1st(j, :) * ...
+    xSym(1 : m) + Ha^2 * xSym(j) - G);
+    
+    % Boundary Conditions for temperature
+    if j == 1
+        F(m + j) = weightCoef1st(1, :) * ... 
+        xSym(m + 1 : 2 * m) - Bi0 * ...
+        (xSym(m + j) - 1); % Equation (8)
+    elseif j == m
+        F(m + j) = weightCoef1st(m, :) * ...
+        xSym(m + 1 : 2 * m) + Bi1 * ...
+        xSym(m + j);       % Equation (8)
+    else 
+   % Energy Equations in discretized form
+    F(m + j) = weightCoef2nd(j, :) * ...
+    xSym(m + 1 : 2 * m) - nonDimV * Re *...
+    Pr * weightCoef1st(j, :) * xSym(m + 1 : 2 * m) + ...
+    Br * exp(- epsil * xSym(m + j)) * ...
+    (weightCoef1st(j, :) * xSym(1 : m))^2 + ...
+    Br * Ha^2 * (xSym(j))^2;
+    end
+end
+
+% Boundary conditions for velocity u(0) = u(L) = 0
+F = subs(F, [xSym(1) xSym(m)], [0 0]);
+
+% Functions corresponding to boundary conditions
+F(1,:) = [];
+F(m - 1 ,:) = [];
+
+xSym(1) = [];
+xSym(m - 1) = [];
+
+% Take the Jacobian of the function
+jacob = jacobian(F, xSym(:));
+
+% Newton Raphson method is utilized in this section
+% to solve the nonlinear algeabraic equation set 
+% developed above
+
+tol = 1e-3;
+
+% Initial guess for the state vector
+%Guess = [ 0.9 1.2 1.3 1.1 1.1 1.3 1.2 0.9 0.9 0.8 ...
+% 0.7 0.6 0.5 0.4 0.3 0.2]';
+%x = Guess;
+%Guess = sin(pi * yValues(2:m-1)/2 +pi/2)';
+x = [ones(m - 2,1); ones(m,1);];
+
+%set the error 2*tol to make sure the loop runs at 
+% least once 
+error = 2*tol;
+
+% preallocating
+velocity = zeros(m - 2 , 1);
+temperature = zeros(m, 1);
+
+while error > tol
+% %calculate the function values at the current iteration
+% F = feval(MyFunc,x);
+% %calculate the jacobian matrix
+% J = feval(Jacobian,x);
+
+F_eval = double(subs(F,xSym,x));
+J_eval = double(subs(jacob, xSym,x));
+
+%calculate the update (solve the linear system)
+dx = - J_eval \ F_eval;
+
+%update the x value
+x = x + dx;
+
+% divide the unknown vector to unknown states
+velocityCalc = x(1 : m - 2);
+temperatureCalc = x(m - 1 : 2 * m - 2);
+% include boundaries conditions
+velocity = [0; velocityCalc ;0];
+temperature = temperatureCalc;
+
+%calculate the error
+F_eval = double(subs(F,xSym,x));
+error = max(abs(F_eval));
+end %while loop 
+
+% Entropy Generation
+
+NheatTrans = (weightCoef1st * temperature).^2;
+NfluidFric = Br / Gama * (exp(-epsil * temperature) .* ...
+(weightCoef1st * velocity).^2);
+NmagField = Br / Gama * (Ha * velocity.^2);
+
+% dimensionless local entropy generation rate
+ S = NheatTrans + NfluidFric + NmagField;
+
+\end{lstlisting}
+
+
+\begin{lstlisting}
+% Written by elgiz elgizbaskaya@gmail.com
+% on 21.10.2014
+
+
+% Entropy generation graphes
+% Change of total entropy generation with respect to Re 
+% number for different Ha numbers.
+
+function [] = plotGeneration()
+
+load channel_HaandRe_from0to60;
+
+figure;
+%mrk=; %These are the markers
+    set(0,'defaultaxescolororder')
+    set(0,'defaultaxeslinestyleorder',...
+    {'-o','-p','*-','-v','-+','-^','-.',':x','-d',...
+    '--<','-->','-p',':h'})
+%     set(0,'defaultLineLineWidth','remove')
+% 
+
+    plot(0:2:60, Nhav(:,1),'r-o');
+%     hold on
+%     plot(0:2:60, Nhav(16,:),'g-p');
+    hold on
+    plot(0:2:60, Nhav(:,11),'*--');
+    hold on
+    plot(0:2:60, Nfav(:,1),'r-x');
+%     hold on
+%     plot(0:2:60, Nfav(16,:),'g-p');
+    hold on
+    plot(0:2:60, Nfav(:,11),'+--');
+    hold on
+    plot(0:2:60, Nmav(:,1),'r-p');
+%     hold on
+%     plot(0:2:60, Nmav(16,:),'g-p');
+    hold on
+    plot(0:2:60, Nmav(:,11),'-->');
+ 
+hLegend = legend( ...
+  'Nh_a_v for Ha = 0'        ,...
+  'Nh_a_v for Ha = 20'    , ...
+  'Nf_a_v for Ha = 0'    ,...
+  'Nf_a_v for Ha = 20'        ,...
+  'Nm_a_v for Ha = 0'    , ...
+  'Nm_a_v for Ha = 20'        ,...
+  'Nf_a_v for Ha = 2'   ,...
+  'Nh_a_v for Ha = 2'        ,...
+  'Nf_a_v for Ha = 2'    , 1);
+
+
+
+% hTitle  = title ('Velocity Profile for  ...
+% different values of Ha and Re numbers');
+hXLabel = xlabel('Re'                );
+hYLabel = ylabel('Nh_a_v, Nf_a_v, Nm_a_v '                );
+set( gca                       , ...
+    'FontName'   , 'Helvetica' );
+% set([hTitle, hXLabel, hYLabel], ...
+%     'FontName'   , 'AvantGarde');
+set([hLegend, gca]             , ...
+    'FontSize'   , 11           );
+set([hXLabel, hYLabel]  , ...
+    'FontSize'   , 12          );
+% set( hTitle                    , ...
+%     'FontSize'   , 12          , ...
+%     'FontWeight' , 'bold'      );
+
+set(gca, ...
+  'Box'         , 'off'     , ...
+  'TickDir'     , 'out'     , ...
+  'TickLength'  , [.02 .02] , ...
+  'XMinorTick'  , 'on'      , ...
+  'YMinorTick'  , 'on'      , ...
+  'YGrid'       , 'on'      , ...
+  'XColor'      , [.3 .3 .3], ...
+  'YColor'      , [.3 .3 .3], ...
+  'LineWidth'   , 1         );
+
+print -depsc2 '-r300' equipartitioningwrtRe_Ha0_20.eps
+
+\end{lstlisting}
+
+\section{Codes for Nanofluid Inclined Channel Flow}
+
+\begin{lstlisting}
+
+% Written by Elgiz Baskaya
+% elgizbaskaya@gmail.com 11.02.2014
+
+% This code solves the one dimensional inclined channel filled
+% with nanofluids in the presence of a constant magnetic field. 
+% The Nonlinear coupled differential equations are discretized 
+% using GDQM method. Then the nonlinear algeabraic equation
+% set is solved utilizing NewtonRaphson Method
+
+%% Problem Definition
+
+clc;
+clear all;
+close all;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Constants given in the problem
+
+% F  = index indicates fluids      -> For this study the base 
+%                                    fluid is water
+% P  = index indicates particles   -> For this study the 
+%                                  nanoparticles are  copper
+% NF = index indicates nanofluids
+
+P = 1;
+Br = 0.1;
+Ra = 1e1;    % 1e7 is a critical value after which the 
+% solution diverges 
+Ha = 0;
+Pr = 6.5;    % Around 7 for water 
+% REF : "MHD natural convection and entropy generation in 
+% a trapeziodal enclosure using Cu-water nanofluid"
+%  Amir Housang Mahmoudi et all. 
+fi = pi / 6; % should be rad
+volFrac = 0.06; % volume fraction of solid nanoparticles
+
+muF = 0.855e-3;  % [N * s / m^2] - Dynamic Viscosity of 
+% base fluid (@ T = 300K ) REF : "Effects of Various 
+% Parameters on Nanofluid Thermal Conduction" 
+% J Choi Stephen
+kF  = 0.613;     % [W / m / K]   - Thermal Conductivity of 
+% base fluid (@ T = 300K ) REF : "Effects of Various 
+% Parameters on Nanofluid Thermal Conduction" 
+% J Choi Stephen
+kP  = 401;       % [W / m / K]   - Thermal Conductivity of 
+% nanoparticle (@ T = 300K ) 
+% REF : "Effects of Various Parameters on Nanofluid 
+% Thermal Conduction" J Choi Stephen
+roF = 997;       % [m^3 / kg]    - Density of base fluid 
+% (@ T = 300K ) REF : "Effects of Various Parameters 
+% on Nanofluid Thermal Conduction" J Choi Stephen
+roP = 8933;      % [m^3 / kg]    - Density of nanoparticles 
+% (@ T = 300K ) REF : "Effects of Various Parameters 
+% on Nanofluid Thermal Conduction" J Choi Stephen
+CpF = 4170;      % [J / kg / K]  - Specific Heat of base fluid 
+% (@ T = 300K ) REF : "Effects of Various Parameters 
+% on Nanofluid Thermal Conduction" J Choi Stephen
+betaF = 2.1e-4;  % [1 / K]    - Coefficient of volume 
+% expansion REF : "MHD natural convection and 
+% entropy generation in a trapeziodal enclosure using 
+% Cu-water nanofluid" Amir Housang Mahmoudi et all. 
+betaP = 1.67e-5; % [1 / K]    - Coefficient of volume                    
+% expansion REF : "MHD natural convection and entropy 
+% generation in a trapeziodal enclosure using 
+% Cu-water nanofluid" Amir Housang Mahmoudi et all. 
+ 
+muNF = muF / ((1 - volFrac)^(2.5));      % [N * s / m^2] 
+% Effective Dynamic Viscosity of Nanofluid - 
+% BRINKMAN MODEL - REF : "The Viscosity of 
+% Concentrated Suspensions and solutions, 
+% J. Chem. Phys.1952; 20: 571-81
+alfaF = kF / roF / CpF;    % [m^2 / s] - Thermal diffusivity 
+%of the base fluid 
+roNF = (1 - volFrac) * roF + volFrac * roP;   % [m^3 / kg]
+% Effective Density of Nanofluid
+robetaNF =  (1 - volFrac) * roF * betaF + volFrac *...
+ roP * betaP;  
+kNF = kF * (kP + 2 * kF - 2 * volFrac * (kF - kP)) / ...
+(kP + 2 * kF + 2 * volFrac * (kF - kP));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Gridding 
+
+% Option 1. Equal Gridding
+
+% Call function equalGridding to calculate gridded axes 
+% values. This problem is one directional and the state 
+% variables only change in y direction. Thus a valid input 
+% to the function when called would be like [0 10 0] 
+% meaning that only y axis will be gridded to 5 elements 
+% and [0 0 -1 1 0 0] meaing the lower and upper values 
+% of y will be -1 and 1 respectively
+% griddedAxes = equalGridding();
+% yValues = griddedAxes.y;
+
+% Option 2. Gauss Lobato Gridding
+% Chyebisev Gauss Lobato gridding
+
+N = 20;
+yValues = CGS_grid(-1,1,N);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% number of unknowns n
+% Number of  different functions sets 
+fn = 2; % Since we only try to find U2 and theta_2
+m = length(yValues);
+n = fn * m;
+
+% Vector of unknown variables 
+% x_1 ... x_m representing U_21 ... U_2M
+% x_m+1 ... x_2m representing theta_21 ... theta_2M
+
+% Unknown variables to be calculated written symbolically 
+% here
+xSym = sym('x',[n 1]);
+
+% soyle yapilirsa class(x1) = sym oluyor; yukardaki gibi 
+% olmuyor.
+% syms U T;
+% U=sym(zeros(N,1));
+% Th=sym(zeros(N,1));
+% 
+% for n=1:1:N
+%     eval(strcat('syms',' u',num2str(n)));
+%     U(n)=eval(strcat('u',num2str(n)));
+%     eval(strcat('syms',' th',num2str(n)));
+%     Th(n)=eval(strcat('th',num2str(n)));
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Initialize
+
+% Weight coefficients for first and second order derivatives
+weightCoef2nd = zeros(m,m);
+weightCoef1st = zeros(m,m);
+F = sym(zeros(2 * m, 1));
+
+% Function in symbolic variables to take the Jacobian
+for j = 1 : m
+    for k = 1 : m
+       weightCoef2nd(j,k) = ...
+       calculateSecondOrderCoef(yValues,j,k);
+       weightCoef1st(j,k) = calculateFirstOrderCoef...
+       (yValues,j,k);
+    end 
+    F (j) = muNF / alfaF / roNF * weightCoef2nd(j,:) * ....
+    xSym(1:m) + (robetaNF / (roNF * betaF) )* sin(fi) * ...
+    Ra * Pr * xSym(m + j) - Pr * Ha^2 * xSym(j) + P;
+    F (m + j) = weightCoef2nd(j,:) * xSym(m + 1:2*m) + ...
+    kF / kNF * muNF / muF * Br * (weightCoef1st(j,:) * ...
+    xSym(1:m))^2 + roNF / roF * kF / kNF * Br * ...
+    Ha^2 * (xSym(j))^2;
+end
+
+% Boundary conditions
+% Boundary conditions are given as u(0) = u(L) = 0
+%                                  t(0) = 0 t(L) = 1
+
+F = subs(F ,[xSym(1) xSym(m) xSym(m+1) xSym(2*m)], ...
+[0 0 0 1 ]);
+
+% Functions corresponding to boundary conditions
+F(1,:) = [];
+F(m - 1 ,:) = [];
+F(m + 1 -2, :) = [];
+F(2 * m -3,:) = [];
+
+% F(:,1) = [];
+% F( :,m - 1) = [];
+% F(:,m + 1 -2 ) = [];
+% F(:,2 * m -3) = [];
+
+xSym(1) = [];
+xSym(m - 1) = [];
+xSym(m + 1 - 2) = [];
+xSym(2 * m - 3) = [];
+
+% Take the Jacobian of the function
+jacob = jacobian(F, xSym(:));
+
+%% Newton Raphson method is utilized in this section ...
+% to solve the nonlinear algeabraic equation set developed 
+% above
+
+tol = 1e-3;
+
+% Initial guess for the state vector
+%Guess = [ 0.9 1.2 1.3 1.1 1.1 1.3 1.2 0.9 0.9 0.8 ... 
+% 0.7 0.6 0.5 0.4 0.3 0.2]';
+%x = Guess;
+Guess = ones(m - 2,1);
+%Guess = sin(pi * yValues(2:m-1)/2 +pi/2)';
+x = [Guess; Guess];
+
+%set the error 2*tol to make sure the loop runs at least once 
+error = 2*tol;
+
+% preallocating
+velocityCalc = zeros((length(x)/2),1);
+temperatureCalc = zeros((length(x)/2),1);
+velocity = zeros((length(x)/2) + 2,1);
+temperature = zeros((length(x)/2) + 2,1);
+
+while error > tol
+% %calculate the function values at the current iteration
+% F = feval(MyFunc,x);
+% %calculate the jacobian matrix
+% J = feval(Jacobian,x);
+
+F_eval = subs(F,xSym,x);
+J_eval = subs(jacob, xSym,x);
+
+%calculate the update (solve the linear system)
+dx = - J_eval \ F_eval;
+
+%update the x value
+x = x + dx;
+
+% divide the unknown vector to unknown states
+velocityCalc = x(1:(size(x)/2));
+temperatureCalc = x(size(x)/2+1 :(size(x)));
+% include boundaries conditions
+velocity = [0; velocityCalc ;0];
+temperature = [0 ;temperatureCalc; 1];
+
+
+%calculate the error
+F_eval = subs(F,xSym,x);
+error = max(abs(F_eval));
+end %while loop 
+
+\end{lstlisting}
+
+
+\begin{lstlisting}
+
+% Written by Elgiz Baskaya
+% elgizbaskaya@gmail.com 11.02.2014
+
+% This code solves the one dimensional inclined channel filled 
+% with nanofluids in the presence of a constant magnetic field. 
+% The Nonlinear coupled differential equations are discretized 
+% using GDQM method. Then the nonlinear algeabraic equation
+% set is solved utilizing NewtonRaphson Method
+
+function [velocity, temperature,S,NheatTrans,NfluidFric,...
+NmagField] = oneDimIncChannelwithMagF(P,Ha,Br,Ra,...
+fi,alfa, volFrac,Gama)
+
+% Problem Definition
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Constants given in the problem
+
+% F  = index indicates fluids      -> For this study the base 
+% fluid is water
+% P  = index indicates particles   -> For this study the 
+% nanoparticles are copper 
+% NF = index indicates nanofluids
+
+% P = 1;
+% Ha = 1;
+% Br = 0.1;
+% Ra = 1e5;    % 1e7 is a critical value after which the ...
+% solution diverges 
+% Pr = 6.5;    % Around 7 for water - REF : "MHD natural ...
+% convection and entropy generation in a trapeziodal ...
+% enclosure using Cu-water ...
+% nanofluid" Amir Housang Mahmoudi et all. Table 1
+% fi = pi / 6; % should be rad
+% volFrac = 0.06; % volume fraction of solid nanoparticles
+
+
+muF = 0.855e-3;  % [N * s / m^2] - Dynamic Viscosity of base 
+% fluid (@ T = 300K ) REF : "Effects of Various Parameters 
+% on Nanofluid Thermal Conduction" J Choi Stephen
+kF  = 0.613;     % [W / m / K]   - Thermal Conductivity of 
+% base fluid (@ T = 300K ) REF : "Effects of Various 
+% Parameters on Nanofluid Thermal Conduction" 
+% J Choi Stephen
+kP  = 401;       % [W / m / K]   - Thermal Conductivity of 
+% nanoparticle (@ T = 300K ) REF : "Effects of Various 
+% Parameters on Nanofluid Thermal Conduction" 
+% J Choi Stephen
+roF = 997;       % [m^3 / kg]    - Density of base fluid 
+% (@ T = 300K ) REF : "Effects of Various Parameters on
+% Nanofluid Thermal Conduction" J Choi Stephen
+roP = 8933;      % [m^3 / kg]    - Density of nanoparticles 
+% (@ T = 300K ) REF : "Effects of Various Parameters on 
+% Nanofluid Thermal Conduction" J Choi Stephen
+CpF = 4170;      % [J / kg / K]  - Specific Heat of base fluid
+% (@ T = 300K ) REF : "Effects of Various Parameters on 
+% Nanofluid Thermal Conduction" J Choi Stephen
+betaF = 2.1e-4;  % [1 / K]       - Coefficient of volume 
+% expansion 
+% REF : "MHD natural convection and entropy generation
+% in a trapeziodal enclosure using Cu-water nanofluid" 
+% Amir Housang Mahmoudi et all. 
+betaP = 1.67e-5; % [1 / K]       - Coefficient of volume 
+% expansion                       
+% REF : "MHD natural convection and entropy generation in 
+% a trapeziodal enclosure using Cu-water nanofluid" 
+% Amir Housang Mahmoudi et all. 
+% sgmaF = 0.05
+% sgmaP = 5.97e7
+
+muNF = muF / (1 - volFrac)^(2.5);    % [N * s / m^2]  
+% Effective Dynamic Viscosity of Nanofluid  
+% BRINKMAN MODEL REF : "The Viscosity of 
+% Concentrated Suspensions and solutions, 
+% J. Chem. Phys.1952; 20: 571-81
+alfaF = kF / roF / CpF;              % [m^2 / s]
+% Thermal diffusivity of the base fluid 
+roNF = (1 - volFrac) * roF + volFrac * roP;  % [m^3 / kg]
+% Effective Density of Nanofluid
+%sgmaNF = (1 - volFrac) * sgmaF + volFrac * sgmaP
+robetaNF =  (1 - volFrac) * roF * betaF + ...
+volFrac * roP * betaP;                        
+kNF = kF * (kP + 2 * kF - 2 * volFrac * (kF - kP)) / ...
+(kP + 2 * kF + 2 * volFrac * (kF - kP)); 
+
+Pr = muF * CpF / kF;
+
+% Needed : Bo, H, sgmaNF, (TH - TC), 
+% Ha = Bo * H * sqrt(sgmaNF / roNF / (muF/roF))
+% Ec = alfaF ^ 2 / H ^ 2 / CpF / (TH - TC)
+% Br = Ec * Pr
+% Ra = g * betaF * H ^ 3 * (TH - TC) / (muF / roF) / alfaF
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Gridding 
+
+% Option 1. Equal Gridding
+
+% Call function equalGridding to calculate gridded axes 
+% values. This problem is one directional and the state 
+% variables only change in y direction. Thus a valid input 
+% to the function when called would be like [0 10 0] 
+% meaning that only y axis will be gridded to 5 elements 
+% and [0 0 -1 1 0 0] meaing the lower and upper values 
+% of y will be -1 and 1 respectively
+% griddedAxes = equalGridding();
+% yValues = griddedAxes.y;
+
+% Option 2. Gauss Lobato Gridding
+% Chyebisev Gauss Lobato gridding
+
+N = 11;
+yValues = CGS_grid(-1,1,N);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% number of unknowns n
+% Number of  different functions sets 
+fn = 2; % Since we only try to find U2 and theta_2
+m = length(yValues);
+n = fn * m;
+
+% Vector of unknown variables 
+% x_1 ... x_m representing U_21 ... U_2M
+% x_m+1 ... x_2m representing theta_21 ... theta_2M
+
+% Unknown variables to be calculated written symbolically 
+% here
+xSym = sym('x',[n 1]);
+
+% soyle yapilirsa class(x1) = sym oluyor; yukardaki gibi 
+% olmuyor.
+% syms U T;
+% U=sym(zeros(N,1));
+% Th=sym(zeros(N,1));
+
+% for n=1:1:N
+%     eval(strcat('syms',' u',num2str(n)));
+%     U(n)=eval(strcat('u',num2str(n)));
+%     eval(strcat('syms',' th',num2str(n)));
+%     Th(n)=eval(strcat('th',num2str(n)));
+% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Initialize
+
+% Weight coefficients for first and second order derivatives
+weightCoef2nd = zeros(m,m);
+weightCoef1st = zeros(m,m);
+F = sym(zeros(2 * m, 1));
+
+% Function in symbolic variables to take the Jacobian
+for j = 1 : m
+    for k = 1 : m
+       weightCoef2nd(j,k) = ...
+       calculateSecondOrderCoef(yValues,j,k);
+       weightCoef1st(j,k) = ...
+       calculateFirstOrderCoef(yValues,j,k);
+    end 
+    F (j) = muNF / alfaF / roNF * weightCoef2nd(j,:) * ... 
+    xSym(1:m) + robetaNF / roNF / betaF * sin(fi) * ... 
+    Ra * Pr * xSym(m + j) - Pr * Ha^2 *...
+    (sin(alfa + fi))^2 * xSym(j) + P;
+    F (m + j) = weightCoef2nd(j,:) * xSym(m + 1:2*m) + ...
+    kF / kNF * muNF / muF * Br * (weightCoef1st(j,:) * ...
+    xSym(1:m))^2 + roNF / roF * kF / kNF * Br * Ha^2 * ...
+    (sin(alfa + fi))^2 * (xSym(j))^2;
+end
+
+% Boundary conditions
+% Boundary conditions are given as u(0) = u(L) = 0
+%                                  t(0) = 0 t(L) = 1
+
+F = subs(F ,[xSym(1) xSym(m) xSym(m+1) xSym(2*m)], ...
+[0 0 0 1 ]);
+
+% Functions corresponding to boundary conditions
+F(1,:) = [];
+F(m - 1 ,:) = [];
+F(m + 1 -2, :) = [];
+F(2 * m -3,:) = [];
+
+% F(:,1) = [];
+% F( :,m - 1) = [];
+% F(:,m + 1 -2 ) = [];
+% F(:,2 * m -3) = [];
+
+xSym(1) = [];
+xSym(m - 1) = [];
+xSym(m + 1 - 2) = [];
+xSym(2 * m - 3) = [];
+
+% Take the Jacobian of the function
+jacob = jacobian(F, xSym(:));
+
+% Newton Raphson method is utilized in this section to 
+% solve the nonlinear algeabraic equation set developed 
+% above
+
+tol = 1e-3;
+
+% Initial guess for the state vector
+%Guess = [ 0.9 1.2 1.3 1.1 1.1 1.3 1.2 0.9 0.9 0.8 0.7 ...
+% 0.6 0.5 0.4 0.3 0.2]';
+%x = Guess;
+Guess = ones(m - 2,1);
+%Guess = sin(pi * yValues(2:m-1)/2 +pi/2)';
+x = [Guess; Guess];
+
+%set the error 2*tol to make sure the loop runs at least once 
+error = 2*tol;
+
+% preallocating
+velocity = zeros((length(x)/2) + 2,1);
+temperature = zeros((length(x)/2) + 2,1);
+
+while error > tol
+% %calculate the function values at the current iteration
+% F = feval(MyFunc,x);
+% %calculate the jacobian matrix
+% J = feval(Jacobian,x);
+
+F_eval = double(subs(F,xSym,x));
+J_eval = double(subs(jacob, xSym,x));
+
+%calculate the update (solve the linear system)
+dx = - J_eval \ F_eval;
+
+%update the x value
+x = x + dx;
+
+% divide the unknown vector to unknown states
+velocityCalc = x(1:(size(x)/2));
+temperatureCalc = x(size(x)/2+1 :(size(x)));
+% include boundaries conditions
+velocity = [0; velocityCalc ;0];
+temperature = [0 ;temperatureCalc; 1];
+
+
+%calculate the error
+F_eval = double(subs(F,xSym,x));
+error = max(abs(F_eval));
+end %while loop 
+
+% Entropy Generation
+
+NheatTrans = (weightCoef1st * temperature).^2;
+NfluidFric = Br / Gama * ((weightCoef1st * velocity).^2);
+NmagField = Br / Gama * (Ha * velocity.^2);
+
+% dimensionless local entropy generation rate
+ S = NheatTrans + NfluidFric + NmagField;
+ 
+ \end{lstlisting}
+
+
+\begin{lstlisting}
+%%%%%%%%%% This code is written by Elgiz Baskaya %%%%%%%%%%%%%%
+%%%% 21.02.2014 for questions mail to elgizbaskaya@gmail.com %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Investigation of  the problem on dimensionless parameters 
+% (P,Ha,Br,Ra,Pr,fi,volFrac) and inclination angle of the 
+% channel (fi [rad]) for the given number of grids (N)
+close all;
+clear;
+
+tic;
+N = 11;
+yValues = CGS_grid(-1,1,N);
+
+% Dependence on Hartmann Number
+
+%Ha = 0;
+P = 1;
+Br = 0.1;
+Ra = 20;    % 1e7 is a critical value after which the solution 
+% diverges 
+% fi = pi / 18; % should be rad
+% alfa = pi / 2 - pi / 12;  
+Ha = 2;
+volFrac = 0.03;
+Gama = 0.71;
+%volFrac = 0; % volume fraction of solid nanoparticles
+
+%     % To check the Ha dependence of the flow is changing 
+%     % for different
+%     % nanoparticle volume fraction
+% velEx = zeros(length(yValues),1);
+% i = 1;
+% velChangeWithHa = zeros(1:length(yValues),1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%     % To check the inclination angle dependence of the flow
+%     % is changing for different nanoparticle volume fraction
+% velEx = zeros(length(yValues),1);
+% i = 1;
+% velChangeWithInc = zeros(1:length(yValues),1);
+
+% Initializations for preallocation speed
+% velChangeWithInc = zeros(length(yValues),1);
+% velChangeWithHa = zeros(length(yValues),1);
+velChangeWithfi = zeros(length(yValues),1);
+% tempChangeWithInc = zeros(length(yValues),1);
+% tempChangeWithHa = zeros(length(yValues),1);
+tempChangeWithfi = zeros(length(yValues),1);
+
+i = 1;
+k = 1;
+for fi = 0: pi/18: pi/3 
+
+    for alfa = 0 : pi/18 : pi/2
+        
+        [velocity,temperature,S,NheatTrans,NfluidFric,NmagField] = ...
+        oneDimIncChannelwithMagF(P,Ha,Br,Ra,fi,alfa,volFrac,Gama);
+        vel.fi.name = 'velocity change with respect to channel ...
+        inclination and magnetic field direction';
+        vel.fi.alfa.data(:,i,k) = velocity;
+        temp.fi.name = 'temperature change with respect to ...
+        channel inclination and magnetic field direction';
+        temp.fi.alfa.data(:,i,k) = temperature;
+        
+        NG(:,i,k) = S;              % Local entropy generation 
+        % rate  NG = Nh + Nf + Nm
+        Nh(:,i,k) = NheatTrans;     % Irreversibility due to 
+        % heat transfer
+        Nf(:,i,k) = NfluidFric;     % Entropy generation due 
+        % to viscous dissipation
+        Nm(:,i,k) = NmagField;      % Entropy generation 
+        % due to the effect of magnetic field 
+        % (Joule heating or Ohmic heating)
+        
+        NGav(i,k) = S' * yValues;   % Dimensionless total 
+        % entropy generation rate
+        Nhav(i,k) = NheatTrans' * yValues;   % Dimensionless 
+        % total entropy generation rate due to heat transfer
+        Nfav(i,k) = NfluidFric' * yValues;   % Dimensionless 
+        % total entropy generation rate due to heat transfer
+        Nmav(i,k) = NmagField' * yValues;   % Dimensionless 
+        % total entropy generation rate due to heat transfer
+        
+        k = k + 1
+        
+    end
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+k = 1;
+i = i + 1
+%     % To check the Ha dependence of the flow is changing 
+%     %for different nanoparticle volume fraction
+%     velChangeWithHa(1:length(yValues),i) = ...
+%     (velEx - velocity) ./ velEx;
+%     velEx = velocity;
+%     i = i+1;
+
+%     % To check the inclination angle dependence of the 
+%     % flow is changing for different nanoparticle volume
+%     % fraction
+%     velChangeWithInc(1:length(yValues),i) = ...
+%     (velEx - velocity) ./ velEx;
+%      velEx = velocity;
+%     i = i+1;
+end
+% 
+% % Graphes for velocity change
+% 
+% figVel = figure;
+% hold on;
+% 
+% vel1 = plot(vel.fi.alfa.data(:,1,1));
+% set(vel1                            , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0 .5]    ,...
+%   'LineWidth'       , 1.1         );
+% vel2 = plot(vel.fi.alfa.data(:,1,2));
+% set(vel2                            , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1.1         );
+% vel3 = plot(vel.fi.alfa.data(:,1,3));
+% set(vel3                            , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1.1         );
+% 
+% vel4 = plot(vel.fi.alfa.data(:,2,1));
+% set(vel4                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1.1         );
+% vel5 = plot(vel.fi.alfa.data(:,2,2));
+% set(vel5                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1.1         );
+% vel6 = plot(vel.fi.alfa.data(:,2,3));
+% set(vel6                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1.1         );
+% vel7 = plot(vel.fi.alfa.data(:,3,1));
+% set(vel7                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [1 0 0]    ,...
+%   'LineWidth'       , 1.1         );
+% vel8 = plot(vel.fi.alfa.data(:,3,2));
+% set(vel8                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [1 0 0] ,...
+%   'LineWidth'       , 1.1         );
+% vel9 = plot(vel.fi.alfa.data(:,3,3));
+% set(vel9                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           ,[1 0 0]  ,...
+%   'LineWidth'       , 1.1         );
+% 
+% %hTitle  = title ('Velocity Profile for different channel ...
+% % inclination and magnetic field direction angles');
+% hXLabel = xlabel('Velocity'                     );  
+% hYLabel = ylabel('Length - Y'                      );
+% 
+% hLegend = legend( ...
+%   [vel1, vel2, vel3, vel4, vel5, vel6, vel7, vel8, vel9], ...
+%   'alfa = 0, \phi  = 0 ' , ...
+%   'alfa = 3, \phi  = 0'      , ...
+%   'alfa = 6, \phi  = 0'       , ...
+%   'alfa = 0, \phi  = 0.03'    , ...
+%   'alfa = 3, \phi  = 0.03'                , ...
+%   'alfa = 6, \phi  = 0.03' , ....
+%   'alfa = 0, \phi  = 0.06'    , ...
+%   'alfa = 3, \phi  = 0.06'                , ...
+%   'alfa = 6, \phi  = 0.06' , 2);
+% 
+% set( gca                       , ...
+%     'FontName'   , 'Helvetica' );
+% set([hXLabel, hYLabel], ...
+%     'FontName'   , 'AvantGarde');
+% set([hLegend, gca]             , ...
+%     'FontSize'   , 14           );
+% set([hXLabel, hYLabel]  , ...
+%     'FontSize'   , 14          );
+% % set( hTitle                    , ...
+% %     'FontSize'   , 18          , ...
+% %     'FontWeight' , 'bold'      );
+% 
+% set(gca, ...
+%   'Box'         , 'off'     , ...
+%   'TickDir'     , 'out'     , ...
+%   'TickLength'  , [.02 .02] , ...
+%   'XMinorTick'  , 'on'      , ...
+%   'YMinorTick'  , 'on'      , ...
+%   'YGrid'       , 'on'      , ...
+%   'XColor'      , [.3 .3 .3], ...
+%   'YColor'      , [.3 .3 .3], ...
+%   'LineWidth'   , 1         );
+% 
+% % hText   = text(10, 800, ...
+% %   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+% %   c, cint(2)-c));
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 velDist.eps
+% 
+% fixPSlinestyle('velDist.eps', 'velDist2.eps');
+% 
+% 
+% % Graphes for temperature change
+% 
+% figTemp = figure;
+% hold on;
+% 
+% temp1 = plot(temp.fi.alfa.data(:,1,1));
+% set(temp1                            , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0 .5]    ,...
+%   'LineWidth'       , 1         );
+% temp2 = plot(temp.fi.alfa.data(:,1,2));
+% set(temp2                            , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1         );
+% temp3 = plot(temp.fi.alfa.data(:,1,3));
+% set(temp3                            , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1         );
+% 
+% temp4 = plot(temp.fi.alfa.data(:,2,1));
+% set(temp4                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1        );
+% temp5 = plot(temp.fi.alfa.data(:,2,2));
+% set(temp5                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1         );
+% temp6 = plot(temp.fi.alfa.data(:,2,3));
+% set(temp6                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 .5 0]  ,...
+%   'LineWidth'       , 1         );
+% 
+% temp7 = plot(temp.fi.alfa.data(:,3,1));
+% set(temp7                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1        );
+% temp8 = plot(temp.fi.alfa.data(:,3,2));
+% set(temp8                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1         );
+% temp9 = plot(temp.fi.alfa.data(:,3,3));
+% set(temp9                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [1 0 0]  ,...
+%   'LineWidth'       , 1         );
+% 
+% hLegend = legend( ...
+%   [temp1, temp2, temp3, temp4, temp5, temp6, temp7, ... 
+% temp8,temp9], ...
+%   'alfa = 0, \phi  = 0 ' , ...
+%   'alfa = 3, \phi  = 0'      , ...
+%   'alfa = 6, \phi  = 0'       , ...
+%   'alfa = 0, \phi  = 0.03'    , ...
+%   'alfa = 3, \phi  = 0.03'                , ...
+%   'alfa = 6, \phi  = 0.03' , ...
+%   'alfa = 0, \phi  = 0.06'    , ...
+%   'alfa = 3, \phi  = 0.06'                , ...
+%   'alfa = 6, \phi  = 0.06' , 4);
+% 
+% % hTitle  = title ('Temperature Distribution for different ...
+% % values of alfa and Volume Concentration');
+% hXLabel = xlabel('Temperature'                     );
+% hYLabel = ylabel('Length - Y'                      );
+% 
+% set( gca                       , ...
+%     'FontName'   , 'Helvetica' );
+% set([hXLabel, hYLabel], ...
+%     'FontName'   , 'AvantGarde');
+% set([hLegend, gca]             , ...
+%     'FontSize'   , 14           );
+% set([hXLabel, hYLabel]  , ...
+%     'FontSize'   , 14          );
+% % set( hTitle                    , ...
+% %     'FontSize'   , 14          , ...
+% %     'FontWeight' , 'bold'      );
+% 
+% set(gca, ...
+%   'Box'         , 'off'     , ...
+%   'TickDir'     , 'out'     , ...
+%   'TickLength'  , [.02 .02] , ...
+%   'XMinorTick'  , 'on'      , ...
+%   'YMinorTick'  , 'on'      , ...
+%   'YGrid'       , 'on'      , ...
+%   'XColor'      , [.3 .3 .3], ...
+%   'YColor'      , [.3 .3 .3], ...
+%   'LineWidth'   , 1         );
+
+% magnifyOnFigure(...
+%         figTemp,...
+%         'units', 'pixels',...
+%         'magnifierShape', 'ellipse',...
+%         'initialPositionSecondaryAxes', [120 220 155 180],...
+%         'initialPositionMagnifier',     [280 200 45 45],...    
+%         'mode', 'interactive',...    
+%         'displayLinkStyle', 'straight',...        
+%         'edgeWidth', 1,...
+%         'edgeColor', [0 0 0.5],...
+%         'secondaryAxesFaceColor', [0.91 0.91 0.91]... 
+%             ); 
+%         
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 tempDist.eps
+% 
+% fixPSlinestyle('tempDist.eps', 'tempDist2.eps');
+
+% hText   = text(10, 800, ...
+%   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+%   c, cint(2)-c));
+
+
+%'LineStyle'       ,'-.'         , ...
+
+%    figure(1);
+%    plot(velocity,yValues)
+%    legend(cellstr(num2str((0:0.5:1)')))
+%    legend(cellstr(strcat('\psi  = ',num2str((0:0.01:0.06)'))))
+%    legend('ha=%d',Ha)
+%    Ha = % d \n',Ha
+%    xlabel('Velocity')
+%    ylabel('Y')
+%    hold all
+%    figure(2);
+%    plot(temperature,yValues)
+%    legend(cellstr(strcat('\psi  = ',num2str((0:0.01:0.06)'))))
+%    xlabel('Temperature')
+%    ylabel('Y')
+%    hold all
+toc;
+
+ \end{lstlisting}
+ 
+ \begin{lstlisting}
+ 
+ % graphes
+
+% % Graphes for velocity change
+% 
+figVel = figure;
+hold on;
+% 
+% alfa = 0:10:90;
+% Y = 0 : 0.05 : 0.95
+
+% vel1 = plot(alfa,Nmav(2,:));
+% set(vel1                            , ...
+%   'LineStyle'       ,'--'         , ...  
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0 .5]    ,...
+%   'LineWidth'       , 1.1         );
+% vel2 = plot(alfa,Nhav(2,:));
+% set(vel2                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , '+'         , ...
+%   'Color'           , [0 0.5 .5]  ,...
+%   'LineWidth'       , 1.1         );
+% vel3 = plot(alfa,Nfav(2,:));
+% set(vel3                            , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0.5 0 .5]  ,...
+%   'LineWidth'       , 1.1         );
+
+vel4 = plot(NG(:,2,8));
+set(vel4                            , ...
+  'Marker'          , 's'         , ...
+  'Color'           , [0 .5 0]   ,...
+  'LineWidth'       , 1.1         );
+vel5 = plot(NG(:,3,8));
+set(vel5                            , ...
+  'Marker'          , '+'         , ...
+  'Color'           , [0 .5 0]   ,...
+  'LineWidth'       , 1.1         );
+vel6 = plot(NG(:,4,8));
+set(vel6                            , ...
+  'Marker'          , '^'         , ...
+  'Color'           , [0 .5 0]   ,...
+  'LineWidth'       , 1.1         );
+vel7 = plot(NG(:,5,8));
+set(vel7                            , ...
+  'Marker'          , '*'         , ...
+  'Color'           , [0 0.5 0]    ,...
+  'LineWidth'       , 1.1         );
+vel8 = plot(NG(:,6,8));
+set(vel8                            , ...
+  'Marker'          , 'o'         , ...
+  'Color'           , [0 0.5 0] ,...
+  'LineWidth'       , 1.1         );
+vel9 = plot(NG(:,7,8));
+set(vel9                            , ...
+  'Marker'          , 'p'         , ...
+  'Color'           ,[0 0.5 0]  ,...
+  'LineWidth'       , 1.1         );
+
+
+%   'LineStyle'       ,':'         , ...
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% hTitle  = title ('Velocity Profile for different channel ...
+% inclination and magnetic field direction angles');
+% hXLabel = xlabel('\alpha'          );  
+% hYLabel = ylabel(' Total Entropy Generation  '       );
+
+% hLegend = legend( ...
+%   [vel1, vel2, vel3], ...
+%   'N_m_a_g_n_e_t_i_c ' , ...
+%   'N_h_e_a_t_t_r_a_n_s_f_e_r'      , ...
+%   'N_f_l_u_i_d' , 1);
+
+
+% hTitle  = title ('Velocity Profile for different channel 
+% inclination and magnetic field direction angles');
+hXLabel = xlabel('Y'            );  
+hYLabel = ylabel(' Local Entropy Generation '         );
+
+hLegend = legend( ...
+  [vel4, vel5, vel6, vel7, vel8, vel9], ...
+  '\phi = 10\circ, \alpha = 70\circ' , ...
+  '\phi = 20\circ, \alpha = 70\circ' , ...
+  '\phi = 30\circ, \alpha = 70\circ' , ...
+  '\phi = 40\circ, \alpha = 70\circ', ...
+  '\phi = 50\circ, \alpha = 70\circ', ...
+  '\phi = 60\circ, \alpha = 70\circ', 2);
+
+set( gca                       , ...
+    'FontName'   , 'Helvetica' );
+set([hXLabel, hYLabel], ...
+    'FontName'   , 'AvantGarde');
+set([hLegend, gca]             , ...
+    'FontSize'   , 14           );
+set([hXLabel, hYLabel]  , ...
+    'FontSize'   , 14          );
+% xlim([0 90])
+% ylim([-1 1])
+% set( hTitle                    , ...
+%     'FontSize'   , 18          , ...
+%     'FontWeight' , 'bold'      );
+
+set(gca, ...
+  'Box'         , 'off'     , ...
+  'TickDir'     , 'out'     , ...
+  'TickLength'  , [.02 .02] , ...
+  'XMinorTick'  , 'on'      , ...
+  'YMinorTick'  , 'on'      , ...
+  'YGrid'       , 'on'      , ...
+  'XColor'      , [.3 .3 .3], ...
+  'YColor'      , [.3 .3 .3], ...
+  'LineWidth'   , 1         );
+
+% hText   = text(10, 800, ...
+%   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+%   c, cint(2)-c));
+set(gcf, 'PaperPositionMode', 'auto');
+print -depsc2 localEntropyHa3_4.eps
+
+fixPSlinestyle('localEntropyHa3_4.eps', ....
+'localEntropyHa3_4.eps');
+% 
+% 
+% % Graphes for temperature change
+% 
+% figTemp = figure;
+% hold on;
+% 
+% temp1 = plot(temp.fi.alfa.data(:,1,1));
+% set(temp1                            , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 0 .5]    ,...
+%   'LineWidth'       , 1         );
+% temp2 = plot(temp.fi.alfa.data(:,1,2));
+% set(temp2                            , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1         );
+% temp3 = plot(temp.fi.alfa.data(:,1,3));
+% set(temp3                            , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 0 .5]  ,...
+%   'LineWidth'       , 1         );
+% 
+% temp4 = plot(temp.fi.alfa.data(:,2,1));
+% set(temp4                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1        );
+% temp5 = plot(temp.fi.alfa.data(:,2,2));
+% set(temp5                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [0 .5 0]   ,...
+%   'LineWidth'       , 1         );
+% temp6 = plot(temp.fi.alfa.data(:,2,3));
+% set(temp6                            , ...
+%   'LineStyle'       ,'--'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [0 .5 0]  ,...
+%   'LineWidth'       , 1         );
+% 
+% temp7 = plot(temp.fi.alfa.data(:,3,1));
+% set(temp7                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , 's'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1        );
+% temp8 = plot(temp.fi.alfa.data(:,3,2));
+% set(temp8                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , 'p'         , ...
+%   'Color'           , [1 0 0]   ,...
+%   'LineWidth'       , 1         );
+% temp9 = plot(temp.fi.alfa.data(:,3,3));
+% set(temp9                            , ...
+%   'LineStyle'       ,'-.'         , ...
+%   'Marker'          , '^'         , ...
+%   'Color'           , [1 0 0]  ,...
+%   'LineWidth'       , 1         );
+% 
+% 
+% hLegend = legend( ...
+%   [temp1, temp2, temp3, temp4, temp5, temp6, temp7,...
+%  temp8,temp9], ...
+%   'alfa = 0, \phi  = 0 ' , ...
+%   'alfa = 3, \phi  = 0'      , ...
+%   'alfa = 6, \phi  = 0'       , ...
+%   'alfa = 0, \phi  = 0.03'    , ...
+%   'alfa = 3, \phi  = 0.03'                , ...
+%   'alfa = 6, \phi  = 0.03' , ...
+%   'alfa = 0, \phi  = 0.06'    , ...
+%   'alfa = 3, \phi  = 0.06'                , ...
+%   'alfa = 6, \phi  = 0.06' , 4);
+% 
+% % hTitle  = title ('Temperature Distribution for different 
+% values of alfa and Volume Concentration');
+% hXLabel = xlabel('Temperature'                     );
+% hYLabel = ylabel('Length - Y'                      );
+% 
+% set( gca                       , ...
+%     'FontName'   , 'Helvetica' );
+% set([hXLabel, hYLabel], ...
+%     'FontName'   , 'AvantGarde');
+% set([hLegend, gca]             , ...
+%     'FontSize'   , 14           );
+% set([hXLabel, hYLabel]  , ...
+%     'FontSize'   , 14          );
+% % set( hTitle                    , ...
+% %     'FontSize'   , 14          , ...
+% %     'FontWeight' , 'bold'      );
+% 
+% set(gca, ...
+%   'Box'         , 'off'     , ...
+%   'TickDir'     , 'out'     , ...
+%   'TickLength'  , [.02 .02] , ...
+%   'XMinorTick'  , 'on'      , ...
+%   'YMinorTick'  , 'on'      , ...
+%   'YGrid'       , 'on'      , ...
+%   'XColor'      , [.3 .3 .3], ...
+%   'YColor'      , [.3 .3 .3], ...
+%   'LineWidth'   , 1         );
+% 
+% magnifyOnFigure(...
+%         figTemp,...
+%         'units', 'pixels',...
+%         'magnifierShape', 'ellipse',...
+%         'initialPositionSecondaryAxes', [120 220 155 180],...
+%         'initialPositionMagnifier',     [280 200 45 45],...    
+%         'mode', 'interactive',...    
+%         'displayLinkStyle', 'straight',...        
+%         'edgeWidth', 1,...
+%         'edgeColor', [0 0 0.5],...
+%         'secondaryAxesFaceColor', [0.91 0.91 0.91]... 
+%             ); 
+%         
+% set(gcf, 'PaperPositionMode', 'auto');
+% print -depsc2 tempDist.eps
+% 
+% fixPSlinestyle('tempDist.eps', 'tempDist2.eps');
+
+% hText   = text(10, 800, ...
+%   sprintf('\\it{C = %0.1g \\pm %0.1g (CI)}', ...
+%   c, cint(2)-c));
+
+
+%'LineStyle'       ,'-.'         , ...
+
+%    figure(1);
+%    plot(velocity,yValues)
+%    legend(cellstr(num2str((0:0.5:1)')))
+%    legend(cellstr(strcat('\psi  = ',num2str((0:0.01:0.06)'))))
+%    legend('ha=%d',Ha)
+%    Ha = % d \n',Ha
+%    xlabel('Velocity')
+%    ylabel('Y')
+%    hold all
+%    figure(2);
+%    plot(temperature,yValues)
+%    legend(cellstr(strcat('\psi  = ',num2str((0:0.01:0.06)'))))
+%    xlabel('Temperature')
+%    ylabel('Y')
+%    hold all
+
+  \end{lstlisting}
+  
+  \begin{lstlisting}
+  
+  
+[xx,yy] = meshgrid(0:10:60,0:1:19);
+
+% zz1(:,:) = temp.data(:,1,:);
+% zz2(:,:) = temp.data(:,3,:);
+% zz3(:,:) = temp.data(:,6,:);
+% zz4(:,:) = temp.data(:,11,:);
+
+subplot(2,2,1) 
+surf(xx,yy,vel.fi.alfa.data(:,:,1))
+% axis([0 inf 0 inf 0 0.2])
+title(' \alpha = 0\circ ', 'FontSize', 14)
+xlabel('\Phi','FontSize',13)
+ylabel('Y', 'FontSize',13)
+zlabel('U(Y)', 'FontSize',13)
+caxis([0 1.])
+colorbar;
+xlim([0 60])
+zlim([0 1.7])
+
+subplot(2,2,2) 
+surf(xx,yy,vel.fi.alfa.data(:,:,4))
+% axis([0 inf 0 inf 0 0.2])
+% title('V* = 0.2')
+title(' \alpha = 30\circ ', 'FontSize', 14)
+xlabel('\Phi','FontSize',13)
+ylabel('Y', 'FontSize',13)
+zlabel('U(Y)', 'FontSize',13)
+% zlabel('Total Ent. Gen. Viscous Dissipation Term')
+caxis([0 1.])
+xlim([0 60])
+zlim([0 1.7])
+colorbar;
+% xlim([0 1])
+
+subplot(2,2,3) 
+surf(xx,yy,vel.fi.alfa.data(:,:,7))
+% axis([0 inf 0 inf 0 0.2])
+% title('V* = 0.5')
+title(' \alpha = 60\circ ', 'FontSize', 14)
+xlabel('\Phi','FontSize',13)
+ylabel('Y', 'FontSize',13)
+zlabel('U(Y)', 'FontSize',13)
+% zlabel('Total Ent. Gen. Magnetic Field Term')
+caxis([0 1.])
+xlim([0 60])
+zlim([0 1.7])
+colorbar;
+% xlim([0 1])
+
+subplot(2,2,4) 
+surf(xx,yy,vel.fi.alfa.data(:,:,10))
+% axis([0 inf 0 inf 0 0.2])
+% title('V* = 1')
+title(' \alpha = 90\circ ', 'FontSize', 14)
+xlabel('\Phi','FontSize',13)
+ylabel('Y', 'FontSize',13)
+zlabel('U(Y)', 'FontSize',13)
+% zlabel('Total Ent. Gen. Heat Transfer Term')
+caxis([0 1.])
+xlim([0 60])
+zlim([0 1.7])
+colorbar;
+% xlim([0 1])
+
+set(gcf, 'PaperPositionMode', 'auto');
+
+print -depsc2 '-r300' vel_3D.eps
+
+fixPSlinestyle('vel_3D.eps', 'vel_3Dmodif.eps');
+
+  \end{lstlisting}
+  
+ \begin{lstlisting}
+\end{lstlisting}
+
+%\section*{APPENDIX A.2}
+
+%Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed ac augue vel dui 
+
+\newpage
+
+
+
+
+
+
+

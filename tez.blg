@@ -1,0 +1,54 @@
+This is BibTeX, Version 0.99d (TeX Live 2016)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: tez.aux
+The style file: itubib.bst
+Database file #1: tez.bib
+Warning--I didn't find a database entry for "seth2011unsteady"
+Warning--missing publisher in shen2008minimum
+Warning--empty pages in choiNanofluids
+Warning--empty pages in baskaya2014investigation
+Warning--missing publisher in NacevDrugTargeting
+Warning--empty title in chemProcessEncy
+Warning--there's a number but no volume in AhnMagneticMixer
+You've used 127 entries,
+            2547 wiz_defined-function locations,
+            1339 strings with 25840 characters,
+and the built_in function-call counts, 44128 in all, are:
+= -- 2600
+> -- 1075
+< -- 4
++ -- 443
+- -- 316
+* -- 3548
+:= -- 4335
+add.period$ -- 252
+call.type$ -- 127
+change.case$ -- 2
+chr.to.int$ -- 0
+cite$ -- 133
+duplicate$ -- 4936
+empty$ -- 5089
+format.name$ -- 387
+if$ -- 9483
+int.to.chr$ -- 0
+int.to.str$ -- 127
+missing$ -- 1136
+newline$ -- 387
+num.names$ -- 127
+pop$ -- 1671
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 994
+stack$ -- 0
+substring$ -- 1900
+swap$ -- 3221
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 316
+warning$ -- 6
+while$ -- 249
+width$ -- 130
+write$ -- 1129
+(There were 7 warnings)

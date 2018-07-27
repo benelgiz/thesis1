@@ -1,0 +1,40 @@
+\contentsline {figure}{\numberline {1.1}{\ignorespaces Nano length scale examples \cite {serrano2009nanotechnology}.\relax }}{\bf{2}}{figure.caption.6}
+\contentsline {figure}{\numberline {1.2}{\ignorespaces Thermal conductivities of common liquids, polymers and solids \cite {wen2009review}.\relax }}{\bf{3}}{figure.caption.7}
+\contentsline {figure}{\numberline {1.3}{\ignorespaces $Al_2O_3$ nanofluid temperature dependency on thermal conductivity\cite {shen2008minimum}.\relax }}{\bf{4}}{figure.caption.8}
+\contentsline {figure}{\numberline {1.4}{\ignorespaces Nanofluid thermal conductivity enhancement dependency on particle volume concentration in different temperatures \cite {choiNanofluids}.\relax }}{\bf{5}}{figure.caption.9}
+\contentsline {figure}{\numberline {2.1}{\ignorespaces System Schematic.\relax }}{\bf{14}}{figure.caption.10}
+\contentsline {figure}{\numberline {2.2}{\ignorespaces Schematic configuration of the problem.\relax }}{\bf{21}}{figure.caption.11}
+\contentsline {figure}{\numberline {2.3}{\ignorespaces Schematic configuration of the studied problem.\relax }}{\bf{26}}{figure.caption.12}
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Integral of $f(x)$ over an interval.\relax }}{\bf{33}}{figure.caption.13}
+\contentsline {figure}{\numberline {3.2}{\ignorespaces One-dimensional problem gridding example.\relax }}{\bf{34}}{figure.caption.14}
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Matrix representation of the system of equations.\relax }}{\bf{39}}{figure.caption.15}
+\contentsline {figure}{\numberline {3.4}{\ignorespaces Rows to update in the system of equations due to boundary conditions.\relax }}{\bf{40}}{figure.caption.16}
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Interdisciplinary Entropy Generation Minimization method is at the intersection of three main fields: fluid mechanics, heat transfer, and thermodynamics \cite {BejanEntropy}.\relax }}{\bf{44}}{figure.caption.17}
+\contentsline {figure}{\numberline {4.2}{\ignorespaces EGM two-dimensional structure \cite {BejanEntropy}.\relax }}{\bf{44}}{figure.caption.18}
+\contentsline {figure}{\numberline {4.3}{\ignorespaces EGM two-dimensional structure \cite {BejanEntropy}.\relax }}{\bf{46}}{figure.caption.19}
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Velocity profile of the system for different Ha and V*.\relax }}{\bf{52}}{figure.caption.20}
+\contentsline {figure}{\numberline {5.2}{\ignorespaces 3D Velocity profile change with V* for Ha = 0,2,5,10.\relax }}{\bf{52}}{figure.caption.21}
+\contentsline {figure}{\numberline {5.3}{\ignorespaces 3D Velocity profile change with Ha for V* = 0.1, 0.2, 0.5, 1.\relax }}{\bf{53}}{figure.caption.22}
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Temperature distribution of the system for different Ha and V*.\relax }}{\bf{53}}{figure.caption.23}
+\contentsline {figure}{\numberline {5.5}{\ignorespaces 3D Temperature change with Ha for V* = 0.1, 0.2, 0.5, 1.\relax }}{\bf{54}}{figure.caption.24}
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Velocity profile of the system for different Ha and $\varepsilon $.\relax }}{\bf{55}}{figure.caption.25}
+\contentsline {figure}{\numberline {5.7}{\ignorespaces Temperature distribution of the system for different Ha and $\varepsilon $.\relax }}{\bf{56}}{figure.caption.26}
+\contentsline {figure}{\numberline {5.8}{\ignorespaces Local Entropy generation for different Ha and V*.\relax }}{\bf{57}}{figure.caption.27}
+\contentsline {figure}{\numberline {5.9}{\ignorespaces Total Entropy generation and its components for different V* and Ha.\relax }}{\bf{58}}{figure.caption.28}
+\contentsline {figure}{\numberline {5.10}{\ignorespaces Total Entropy generation and its components for different V* and Ha.\relax }}{\bf{58}}{figure.caption.29}
+\contentsline {figure}{\numberline {5.11}{\ignorespaces Equipartitioning for different Ha and V*.\relax }}{\bf{59}}{figure.caption.30}
+\contentsline {figure}{\numberline {5.12}{\ignorespaces Velocity profile dependence to magnetic field.\relax }}{\bf{62}}{figure.caption.34}
+\contentsline {figure}{\numberline {5.13}{\ignorespaces Temperature distribution dependence to magnetic field.\relax }}{\bf{63}}{figure.caption.35}
+\contentsline {figure}{\numberline {5.14}{\ignorespaces Velocity profile dependence to inclination angle.\relax }}{\bf{64}}{figure.caption.36}
+\contentsline {figure}{\numberline {5.15}{\ignorespaces Temperature distribution dependence to inclination angle.\relax }}{\bf{64}}{figure.caption.37}
+\contentsline {figure}{\numberline {5.16}{\ignorespaces Velocity profile dependence to nanoparticle volume fraction.\relax }}{\bf{65}}{figure.caption.38}
+\contentsline {figure}{\numberline {5.17}{\ignorespaces Temperature distribution dependence to nanoparticle volume fraction.\relax }}{\bf{66}}{figure.caption.39}
+\contentsline {figure}{\numberline {5.18}{\ignorespaces Nondimensionalized temperature change with channel width for a variety of magnetic field intensity and solid volume fraction.\relax }}{\bf{67}}{figure.caption.40}
+\contentsline {figure}{\numberline {5.19}{\ignorespaces Nondimensionalized velocity change with channel width for a variety of magnetic field intensity and solid volume fraction.\relax }}{\bf{68}}{figure.caption.41}
+\contentsline {figure}{\numberline {5.20}{\ignorespaces Nondimensionalized velocity with respect to magnetic field angle $\alpha $ and channel inclination\nobreakspace {}$\phi $.\relax }}{\bf{69}}{figure.caption.42}
+\contentsline {figure}{\numberline {5.21}{\ignorespaces 3D flow behaviour surface for nondimensionalized velocity with respect to channel inclination $\phi $ for four different magnetic field angle $\alpha $.\relax }}{\bf{70}}{figure.caption.43}
+\contentsline {figure}{\numberline {5.22}{\ignorespaces Local entropy generation as a function of channel width for specific magnetic field angle $\alpha $ and channel inclination $\phi $.\relax }}{\bf{71}}{figure.caption.44}
+\contentsline {figure}{\numberline {5.23}{\ignorespaces Local entropy generation as a function of magnetic field angle and channel width for four different channel inclinations $\phi = 0, 20, 30, 40$.\relax }}{\bf{72}}{figure.caption.45}
+\contentsline {figure}{\numberline {5.24}{\ignorespaces Total entropy generation as a function of magnetic field angle $\alpha $ for a variety of channel inclination $\phi $.\relax }}{\bf{72}}{figure.caption.46}
+\contentsline {figure}{\numberline {5.25}{\ignorespaces Total entropy generation due to its terms; heat transfer term, viscous dissipation term, magnetic field term as a function of magnetic field angle $\alpha $ for channel inclination $\phi = 20$.\relax }}{\bf{73}}{figure.caption.47}
+\contentsline {figure}{\numberline {7.1}{\ignorespaces A Liebau pump \cite {numInvLiebauPhenom}\relax }}{\bf{80}}{figure.caption.48}

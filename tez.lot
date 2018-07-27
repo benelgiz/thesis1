@@ -1,0 +1,3 @@
+\contentsline {table}{\numberline {5.1}{\ignorespaces Comparison of the velocities solved via Analytical Solution, Generalized Differential Quadrature Method (GDQM) combined with Newton-Raphson (NR) and Runge Kutta (RK).\relax }}{60}{table.caption.31}
+\contentsline {table}{\numberline {5.2}{\ignorespaces Error norm comparison of solutions via GDQM\&NR and RK. 11 grids are evaluated.\relax }}{60}{table.caption.32}
+\contentsline {table}{\numberline {5.3}{\ignorespaces Error norm comparison for RK and changing grid number/type in GDQM.\relax }}{60}{table.caption.33}

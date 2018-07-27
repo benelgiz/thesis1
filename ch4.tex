@@ -1,0 +1,165 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{ENTROPY GENERATION MINIMIZATION}\label{ch:ifnecch4}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Motivation and Historical Advance}
+
+Entropy generation minimization (EGM) is an interdisciplinary topic merging the ideas in thermodynamics, heat and mass transfer and fluid mechanics as shown by Bejan in Figure~\ref{EGmethod}. The aim of the method is to apply thermodynamic optimization to real systems where irreversibilities due to heat transfer, fluid flow and mass transfer exist.  The theoretical nature of these fields is tricky to apply on real world problems, thus EGM method is proposed by Bejan to cope with this problem. So EGM with Bejan's own words: "the minimization of thermodynamic irreversibility in real-world applications by accounting for the finite-size constraints of actual devices and the finite-time constraints of actual processes" \cite{BejanEntropy2}.
+
+\begin{figure}[H]
+\centerline{\psfig{figure=figures/EGmethod.eps,width=4.1in}}
+\vspace*{6mm}
+\caption{Interdisciplinary Entropy Generation Minimization method is at the intersection of three main fields: fluid mechanics, heat transfer, and thermodynamics \cite{BejanEntropy}.}
+\label{EGmethod} 
+\end{figure}
+
+1970s witness the emergence of EGM method with the fundamental results via Bejan \cite{BejanEntropy2}. Total entropy generation is described as a summation of several levels as shown in Figure~\ref{EGM}. The indigenous idea behind EGM is to minimize the calculated entropy generation rate. The foundations of the method has laid in graduate study years of Bejan while he realized the promising structure of the method such that it can be applied to a wide variety of application areas. The method experiences a steep growth since then, especially along the years 1980s and 1990s in three main aspects: 1. change in energy policies forcing a growth in engineering, 2. the lifting of the Iron Curtain, 3. new advancements in finite time thermodynamics. The method can be applied to a wide variety of applications ranging from power plant power maximization to power consumption minimization in refrigerators or heat pumps. 
+
+\begin{figure}
+\centerline{\psfig{figure=figures/EGM.eps,width=4.1in}}
+\vspace*{6mm}
+\caption{EGM two-dimensional structure \cite{BejanEntropy}.}
+\label{EGM} 
+\end{figure}
+
+EGM method first applied to whole systems assuming that not all the mechanisms are irreversible, ignores some of them and acknowledged the ones with the biggest contribution to the irreversibilities. This led to some complications since it was dependent on the intuition of the person selecting the biggest contribution. This has changed after the method's introduction to heat transfer, and from then on the method recognized that the systems are made of actual hardware \textit{components}, each of these components can be made up of smaller \textit{elemental features} whose processes cause irreversibilities at \textit{differential levels} as indicated in Figure~\ref{EGM}. Figure~\ref{EGM} also shows the historical change in approach to the optimized total system, starting from directly focusing on total system as EGM's first applications before its application to heat transfer, or from right to left, indicating first approaching the components of the system. The final approach of the method was to minimize the entropy generation starting from simple level and heading towards more complicated levels.
+
+Heat transfer is always accompanied by entropy generation meaning a destruction in the systems available work, which should be minimized for optimized engineering systems.
+
+In order to understand the general perspective of heat transfer design practice, let's start by giving the net heat transfer rate between to surfaces having temperatures $T_1$ and $T_2$
+
+\begin{equation} \label{netHeatTransRate}
+Q = \bar{h} A (T_1-T_2)
+\end{equation}
+
+When second law of thermodynamics applied to temperature gap existing in between the systems of different temperatures, entropy generation can be written as
+
+\begin{equation} \label{entGen}
+S_{gen} = \frac{Q}{T_2}-\frac{Q}{T_1} = \frac{Q(T_1-T_2)}{T_1T_2}
+\end{equation}
+
+which also shows that the entropy generation is positive as long as there exists the temperature difference.
+
+Heat transfer design objectives can be categorized under two major groups:
+\begin{itemize} \item Heat transfer augmentation problem: thermal conductance $\bar{h} A$ is increased to improve thermal contact (lower temperature difference $T_1-T_2$) since most of the times in this sort of problems $Q$ is given. What can also be seen from Equ. \eqref{entGen} is that since $T_1 - T_2$ decreased, entropy generation rate is also decreased. \item Thermal insulation problem: effective thermal conductance $\bar{h} A$  is decreased to decrease the net heat transfer rate $Q$ in a setting where temperatures $T_1$ and $T_2$ thus their differences are fixed.  Again from Equ. \eqref{entGen} entropy generation is decreased thanks to decreasing net heat transfer rate $Q$. \end{itemize}
+
+From here on the discussion is narrowed to the topic of entropy generation minimization in convective heat transfer where the irreversibilities are sourced from mainly two effects: heat transfer across a finite (nonzero) temperature difference and fluid friction.
+
+\begin{figure}
+\centerline{\psfig{figure=figures/localEntGen.eps,width=4.5in}}
+\vspace*{6mm}
+\caption{EGM two-dimensional structure \cite{BejanEntropy}.}
+\label{localEntGen} 
+\end{figure}
+
+The control surface formed by the $dxdy$ rectangle in a fluid engaged in convective heat transfer, as shown in Figure~\ref{localEntGen}, is studied as an open thermodynamic system subjected to mass fluxes, energy transfer and entropy transfer interactions. Thermodynamic state of the fluid inside this rectangle is assumed to be uniform, meaning that it is position independent, thanks to the element's small size. But the thermodynamic state of this element may change with time. The fluid is in local thermodynamic equilibrium. 
+
+With the assumptions and explanations above, the entropy generation rate per unit volume $\dot{S}_{gen}^{'''}[W/m^3 K]$, can be calculated by writing the second law of thermodynamics for the element $dxdy$ as
+
+\begin{align}
+\begin{split}
+\dot{S}_{gen}^{'''} dx dy &= \frac{q_x + \frac{\partial q_x}{\partial x}dx}{T + \frac{\partial T}{\partial x}dx}dy + \frac{q_y + \frac{\partial q_y}{\partial y}dy}{T + \frac{\partial T}{\partial y}dy}dx - \frac{q_x}{T}dy - \frac{q_y}{T}dx\\
+&+ \bigg(s + \frac{\partial s}{\partial x}dx \bigg) \bigg(\nu_x + \frac{\partial \nu_x}{\partial x}dx \bigg) \bigg(\rho + \frac{\partial r}{\partial x}dx \bigg) dy \\
+&+ \bigg(s + \frac{\partial s}{\partial y}dy \bigg) \bigg(\nu_y + \frac{\partial \nu_y}{\partial y}dy \bigg) \bigg(\rho + \frac{\partial \rho}{\partial y}dy \bigg) dx \\
+&- s \nu_x \rho dy - s \nu_y \rho  dx + \frac{\partial (\rho s)}{\partial t} dx dy
+\end{split}
+\end{align}
+
+where the first four terms (first line of the equation) account for the entropy transfer associated with heat transfer, next four represent entropy convected in and out of the system and the last stands for entropy accumulation time rate in the control volume. Local rate of entropy generation can be given via dividing the equation to $dxdy$
+
+\begin{align}
+\begin{split} \label{entGen2}
+\dot{S}_{gen}^{'''} &= \frac{1}{T} \bigg( \frac{\partial q_x}{\partial x} + \frac{\partial q_y}{\partial y} \bigg) - \frac{1}{T^2} \bigg( q_x \frac{\partial T}{\partial x} + q_y \frac{\partial T}{\partial y} \bigg) + \rho \bigg( \frac{\partial s}{\partial t} + \nu_x \frac{\partial s}{\partial x} + \nu_y \frac{\partial s}{\partial y} \bigg)\\
+& = s \bigg[ \frac{\partial \rho}{\partial t} + \nu_x \frac{\partial \rho}{\partial x} + \nu_y \frac{\partial \rho}{\partial y} + \rho \bigg( \frac{\partial \nu_x}{\partial x} + \frac{\partial \nu_y}{\partial y} \bigg) \bigg]
+\end{split}
+\end{align}
+
+Due to the mass conservation principle,
+
+\begin{equation} \label{entGen}
+\frac{D\rho}{Dt} + \rho \Delta \cdot \bm{\nu}
+\end{equation}
+
+where 
+
+\begin{equation} \label{entGen1}
+\frac{D}{Dt} = \frac{\partial}{\partial t} + \nu_x \frac{\partial}{\partial x} + \nu_y \frac{\partial}{\partial y}
+\end{equation}
+
+
+last term in Equ. \eqref{entGen2} is becomes zero.
+
+\begin{equation} \label{entGen}
+\frac{D\rho}{Dt} + \rho \Delta \cdot \bm{\nu}
+\end{equation}
+
+Thus volumetric rate of entropy generation can be written as
+
+\begin{equation} \label{entGen3}
+\dot{S}_{gen}^{'''} = \frac{1}{T} \Delta \cdot \bm{q} - \frac{1}{T^2} \bm{q} \cdot \Delta T + \rho \frac{Ds}{Dt}
+\end{equation}
+
+Now, lets put this equation to await a while and write the first law of thermodynamics for a point in the convective medium with assuming the fluid is Newtonian
+
+\begin{equation} \label{entGen4}
+\rho \frac{Du}{Dt}= - \Delta \cdot \bm{q} - P(\Delta \cdot \bm{v} + \mu \Phi)
+\end{equation}
+
+where $\mu$ is the viscosity and $\Phi$ is the viscous dissipation function with units $[s^{-2}]$. This equation shows that rate of change in internal energy per unit volume equals to the addition of the net heat transfer rate by conduction, the work transfer rate due to compression, and the work transfer rate per unit volume associated with viscous dissipation. 
+
+Giving the canonical relation 
+
+\begin{equation} \label{entGen5}
+du = T ds - P d(1/ \rho)
+\end{equation}
+
+and using the substantial derivative notation given in Equ. \eqref{entGen1}  and substitute in Equ. \eqref{entGen4} results in
+Equ. \eqref{entGen6}
+
+
+\begin{equation} \label{entGen6}
+\rho \frac{Ds}{Dt} = \frac{\rho}{T} \frac{Du}{Dt} - \frac{P}{\rho T} \frac{D \rho}{Dt}
+\end{equation}
+
+and finally substituting Equ. \eqref{entGen6} and Equ. \eqref{entGen4} in Equ. \eqref{entGen3} results in 
+
+\begin{equation} \label{entGen7}
+\dot{S}_{gen}^{'''} = - \frac{1}{T^2} \bm{q} \cdot \Delta T + \frac{\mu}{T} \Phi
+\end{equation}
+
+Now, assuming isotropic medium Fourier law of heat conduction is given as
+
+\begin{equation} \label{entGen8}
+\bm{q} = -k \Delta T
+\end{equation}
+
+and if substituted in  Equ. \eqref{entGen7} results 
+
+\begin{equation} \label{entGen9}
+\dot{S}_{gen}^{'''} = - \frac{k}{T^2} (\Delta T)^2 + \frac{\mu}{T} \Phi
+\end{equation}
+
+Thus finally the equation reduces to Equ. \eqref{entGen10} for a two-dimensional cartesian system
+
+\begin{equation} \label{entGen10}
+\dot{S}_{gen}^{'''} = \frac{k}{T^2} \bigg[ {\Big( \frac{\partial T}{\partial x} \Big)}^2 + \Big( \frac{\partial T}{\partial y} \Big)}^2\bigg] + \frac{\mu}{T} \Bigg\{ 2 \bigg[ {\Big( \frac{\partial \nu_x}{\partial x} \Big)}^2 + \Big( \frac{\partial \nu_y}{\partial y} \Big)}^2\bigg] + \Big( \frac{\partial \nu_x}{\partial y} + \frac{\partial \nu_y}{\partial x}\Big)}^2 \Bigg\}
+\end{equation}
+
+Local volumetric entropy generation rate formula for one dimensional viscous incompressible conducting fluid flow in the presence of magnetic field is given by \cite{WoodsThermo} as \eqref{equ25}, indicating each terms irreversibility source
+
+\begin{equation} \label{equ25}
+{{E}_{G}}=\underbrace{\frac{k}{T_{2}^{2}}{{\left( \frac{dT}{dy} \right)}^{2}}}_{heat\_transfer}+\underbrace{\frac{\mu }{{{T}_{2}}}{{\left( \frac{du}{dy} \right)}^{2}}}_{viscous\_dissipation}+\underbrace{\frac{\sigma B_{0}^{2}}{{{T}_{2}}}{{u}^{2}}}_{magnetic\_field}
+\end{equation}
+
+The last term in the right side of \eqref{equ25} is the entropy generation due to magnetic field. Evaluating non-dimensional parameters given in \eqref{nonDimVarSet1}-\eqref{nonDimVarSet2}, \eqref{equNonDimParameters1} - €“\eqref{equNonDimParameters3}, local entropy generation rate is defined as in \eqref{equ26}.
+
+ \begin{equation} \label{equ26}
+{{N}_{S}}=\frac{T_{2}^{2}{{h}^{2}}{{E}_{G}}}{k{{\left( {{T}_{1}}-{{T}_{2}} \right)}^{2}}}={{\left( \frac{d\theta }{dY} \right)}^{2}}+\frac{Br}{\Omega }\left( {{e}^{-\varepsilon \theta }}{{\left( \frac{dU}{dY} \right)}^{2}}+Ha{{U}^{2}} \right)
+\end{equation}
+
+Here $\Omega $ and $Br$ stand for the temperature difference parameter and Brinkmann number respectively and can be given as $\Omega =\frac{\left( {{T}_{1}}-{{T}_{2}} \right)}{{{T}_{2}}}$, $Br=Ec\Pr $. To show the dominance of irreversibility due to heat transfer with respect to the combined effect of fluid friction and magnetic fields, Bejan number is introduced as follows
+
+\begin{equation} \label{equ27}
+Be=\frac{{{N}_{heat}}}{{{N}_{S}}}=\frac{{{\left( \frac{d\theta }{dY} \right)}^{2}}}{{{\left( \frac{d\theta }{dY} \right)}^{2}}+\frac{Br}{\Omega }\left( {{e}^{-\varepsilon \theta }}{{\left( \frac{dU}{dY} \right)}^{2}}+Ha{{U}^{2}} \right)}
+\end{equation}
+
+$Be$ number ranges between 0 and 1 with a meaning of dominance of irreversibility due to heat transfer dominates for the values closer to 1, and the combination of fluid friction and magnetic field for the values closer to 0. 
